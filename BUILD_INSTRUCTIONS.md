@@ -72,11 +72,8 @@ sudo ldconfig
 ### 2. Install Python Dependencies
 
 ```bash
-# Install pybind11
-pip install pybind11>=2.10.0
-
-# Install build tools
-pip install setuptools wheel cmake
+# Install dev tools
+pip -r requirements-dev.txt
 ```
 
 ### 3. Verify CMake Version

@@ -254,6 +254,19 @@ pip install -e . --force-reinstall --no-deps
 - OpenTelemetry C++ SDK
 - pybind11 >= 2.10.0
 
+### Troubleshooting
+
+Running pip install is failing
+
+```bash
+# clean up cmake cache files
+rm -rf CMakeCache.txt CMakeFiles/ cmake_install.cmake build/ dist/ *.egg-info/ *.so
+
+# Install in editable mode
+pip install -e .
+```
+
+
 ## Performance Considerations
 
 - The C++ SDK provides better performance than pure Python implementations
