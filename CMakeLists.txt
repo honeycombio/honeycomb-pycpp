@@ -10,7 +10,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Find Python
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
+# First try Python3, then fall back to Python
+find_package(Python3 COMPONENTS Interpreter Development)
+if(NOT Python3_FOUND)
+    find_package(Python COMPONENTS Interpreter Development REQUIRED)
+    set(Python3_EXECUTABLE ${Python_EXECUTABLE})
+    set(Python3_INCLUDE_DIRS ${Python_INCLUDE_DIRS})
+    set(Python3_VERSION ${Python_VERSION})
+else()
+    # Alias Python3 variables to Python for compatibility
+    set(Python_EXECUTABLE ${Python3_EXECUTABLE})
+    set(Python_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+    set(Python_VERSION ${Python3_VERSION})
+endif()
 
 # Find pybind11
 find_package(pybind11 CONFIG REQUIRED)

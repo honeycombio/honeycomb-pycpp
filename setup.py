@@ -24,9 +24,17 @@ class CMakeBuild(build_ext):
         debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
         cfg = "Debug" if debug else "Release"
 
+        # Get Python paths for CMake
+        import sysconfig
+        python_include_dir = sysconfig.get_path('include')
+        python_library = sysconfig.get_config_var('LIBDIR')
+
         cmake_args = [
             f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}",
             f"-DPYTHON_EXECUTABLE={sys.executable}",
+            f"-DPython_EXECUTABLE={sys.executable}",
+            f"-DPython_ROOT_DIR={sys.prefix}",
+            f"-DPython_INCLUDE_DIR={python_include_dir}",
             f"-DCMAKE_BUILD_TYPE={cfg}",
         ]
 
