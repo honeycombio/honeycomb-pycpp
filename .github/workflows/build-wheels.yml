@@ -37,66 +37,8 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.3
         env:
+          # Override architecture from matrix
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
-          # Build for Python 3.8 through 3.12
-          CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
-          # Skip 32-bit builds and musl-based builds
-          CIBW_SKIP: "*-musllinux_*"
-          # Install dependencies needed for building
-          CIBW_BEFORE_ALL_LINUX: |
-            # Install build tools and dependencies
-            yum install -y cmake3 gcc-c++ openssl-devel curl-devel zlib-devel wget tar || \
-            apt-get update && apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget
-
-            # Create symlink for cmake if using cmake3
-            ln -sf /usr/bin/cmake3 /usr/bin/cmake || true
-
-            # Install nlohmann-json
-            cd /tmp
-            wget https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
-            tar -xf json.tar.xz
-            cd json
-            cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DJSON_BuildTests=OFF
-            cmake --build build
-            cmake --install build
-
-            # Install OpenTelemetry C++ SDK
-            cd /tmp
-            wget https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.17.0.tar.gz
-            tar -xzf v1.17.0.tar.gz
-            cd opentelemetry-cpp-1.17.0
-            cmake -B build \
-              -DCMAKE_INSTALL_PREFIX=/usr/local \
-              -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-              -DWITH_OTLP_HTTP=ON \
-              -DWITH_OTLP_GRPC=OFF \
-              -DBUILD_TESTING=OFF \
-              -DWITH_EXAMPLES=OFF \
-              -DWITH_ABSEIL=OFF
-            cmake --build build -j4
-            cmake --install build
-
-            # Clean up
-            cd /
-            rm -rf /tmp/*
-
-          # Install build dependencies and set up Python paths
-          CIBW_BEFORE_BUILD: |
-            pip install cmake pybind11
-            # Set Python paths for CMake
-            export Python_ROOT_DIR=$(python -c "import sys; print(sys.prefix)")
-            export Python_INCLUDE_DIR=$(python -c "from sysconfig import get_path; print(get_path('include'))")
-            export Python_LIBRARY=$(python -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))")
-
-          # Set environment variables for CMake to find Python correctly
-          CIBW_ENVIRONMENT: >
-            Python_ROOT_DIR=$(python -c "import sys; print(sys.prefix)")
-            Python_INCLUDE_DIR=$(python -c "from sysconfig import get_path; print(get_path('include'))")
-
-          # Run tests after building (optional - adjust or remove if needed)
-          CIBW_TEST_COMMAND: python -c "import otel_cpp_tracer; print('Import successful')"
-          # Enable verbose output for debugging
-          CIBW_BUILD_VERBOSITY: 1
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4

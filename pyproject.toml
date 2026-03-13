@@ -15,3 +15,82 @@ license = {text = "Apache-2.0"}
 
 [project.urls]
 Homepage = "https://github.com/honeycombio/opentelemetry-pybind11"
+
+[tool.cibuildwheel]
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*"]
+skip = "*-musllinux_*"
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+before-all = """
+  set -ex
+
+  # Install build tools and dependencies (check which package manager is available)
+  if command -v yum &> /dev/null; then
+    # Try cmake first, fall back to cmake3
+    yum install -y cmake gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool || \
+    yum install -y cmake3 gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool
+    # Create cmake symlink if only cmake3 exists
+    if [ ! -f /usr/bin/cmake ] && [ -f /usr/bin/cmake3 ]; then
+      ln -sf /usr/bin/cmake3 /usr/bin/cmake
+    fi
+  elif command -v apt-get &> /dev/null; then
+    apt-get update
+    apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool
+  fi
+
+  # Build and install a newer curl (required for OpenTelemetry HTTP exporter)
+  cd /tmp
+  wget -q https://curl.se/download/curl-8.4.0.tar.gz
+  tar -xzf curl-8.4.0.tar.gz
+  cd curl-8.4.0
+  ./configure --prefix=/usr/local --with-openssl
+  make -j2
+  make install
+  ldconfig || true
+
+  # Build and install a newer protobuf with CMake (required for OpenTelemetry)
+  cd /tmp
+  wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-3.21.12.tar.gz
+  tar -xzf protobuf-cpp-3.21.12.tar.gz
+  cd protobuf-3.21.12
+  cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
+  cmake --build build -j2
+  cmake --install build
+  ldconfig || true
+
+  # Install nlohmann-json
+  cd /tmp
+  wget -q https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  tar -xf json.tar.xz
+  cd json
+  cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local -DJSON_BuildTests=OFF
+  cmake --build build -j2
+  cmake --install build
+
+  # Install OpenTelemetry C++ SDK v1.25 (includes semantic conventions)
+  cd /tmp
+  wget -q https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.25.0.tar.gz
+  tar -xzf v1.25.0.tar.gz
+  cd opentelemetry-cpp-1.25.0
+  cmake -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DWITH_OTLP_HTTP=ON \
+    -DWITH_OTLP_GRPC=OFF \
+    -DBUILD_TESTING=OFF \
+    -DWITH_EXAMPLES=OFF \
+    -DWITH_BENCHMARK=OFF
+  cmake --build build -j2
+  cmake --install build
+
+  # Clean up
+  cd /
+  rm -rf /tmp/*
+"""
+
+before-build = "pip install pybind11[global]"
+
+environment = { PIP_ONLY_BINARY="cmake" }
+
+test-command = "python -c 'import otel_cpp_tracer; print(\"Import successful\")'"
