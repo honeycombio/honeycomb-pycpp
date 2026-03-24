@@ -1,16 +1,9 @@
 # OpenTelemetry C++ Python Bindings
 
-Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracing capabilities through a Pythonic interface.
+[![OSS Lifecycle](https://img.shields.io/osslifecycle/honeycombio/opentelemetry-pybind11?color=success)](https://github.com/honeycombio/home/blob/main/honeycomb-oss-lifecycle-and-practices.md)
+[![CircleCI](https://circleci.com/gh/honeycombio/opentelemetry-pybind11.svg?style=shield)](https://circleci.com/gh/honeycombio/opentelemetry-pybind11)
 
-## Features
-
-- **High Performance**: Leverages the C++ SDK for efficient tracing
-- **Simple API**: Pythonic interface using context managers
-- **Multiple Exporters**: Supports console (stdout) and OTLP exporters
-- **Span Management**: Automatic span lifecycle management
-- **Rich Attributes**: Support for string, integer, float, and boolean attributes
-- **Events**: Add timestamped events to spans
-- **Status Codes**: Set span status (OK, ERROR, UNSET)
+Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracing capabilities through a Pythonic interface. This library is **experimental**.
 
 ## Prerequisites
 
