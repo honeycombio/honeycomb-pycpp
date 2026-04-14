@@ -12,7 +12,7 @@ Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracin
 1. **OpenTelemetry C++ SDK**
    ```bash
    # macOS
-   brew install open-telemetry-cpp
+   brew install opentelemetry-cpp
 
    # Ubuntu/Debian
    sudo apt-get install libopentelemetry-dev
@@ -29,18 +29,9 @@ Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracin
    sudo make install
    ```
 
-2. **pybind11**
+2. **Python dev dependencies**
    ```bash
-   pip install pybind11
-   ```
-
-3. **CMake** (>= 3.15)
-   ```bash
-   # macOS
-   brew install cmake
-
-   # Ubuntu/Debian
-   sudo apt-get install cmake
+   pip install -r requirements-dev.txt
    ```
 
 ## Installation

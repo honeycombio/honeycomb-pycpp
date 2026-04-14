@@ -62,10 +62,10 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="otel-cpp-tracer",
+    name="opentelemetry-pybind11",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Alex Boten",
+    author_email="alexboten@honeycomb.io",
     description="Python bindings for OpenTelemetry C++ SDK",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
@@ -74,4 +74,5 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[],
+    license="Apache-2.0",
 )

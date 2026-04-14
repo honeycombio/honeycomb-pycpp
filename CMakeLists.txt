@@ -17,9 +17,6 @@ set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
 set(Python_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
 set(Python_VERSION ${PYTHON_VERSION_STRING})
 
-# Find Protobuf (required by OpenTelemetry)
-find_package(Protobuf REQUIRED)
-
 # Find OpenTelemetry C++
 find_package(opentelemetry-cpp CONFIG REQUIRED)
 
