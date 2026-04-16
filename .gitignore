@@ -1,5 +1,6 @@
 # Build directories
 build/
+.cibw-cache/
 dist/
 *.egg-info/
 __pycache__/
@@ -32,3 +33,6 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python OTel API
+opentelemetry-python

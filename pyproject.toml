@@ -23,15 +23,15 @@ build-verbosity = 1
 before-build = "pip install -r requirements-dev.txt"
 environment = { PIP_ONLY_BINARY="cmake" }
 test-command = "python -c 'import otel_cpp_tracer; print(\"Import successful\")'"
-cache-path = "~/.cache/cibw-otel-deps"
 
 [tool.cibuildwheel.linux]
 before-all = """
   set -ex
 
-  # Per-arch cache directory so x86_64 and aarch64 never share compiled artifacts
+  # Per-arch cache under the project root, which cibuildwheel mounts at /project
+  # inside the container — so it persists across runs via actions/cache in CI.
   ARCH=$(uname -m)
-  CACHE="$HOME/.cache/cibw-otel-deps/$ARCH"
+  CACHE="/project/.cibw-cache/$ARCH"
   STAMP="$CACHE/.built-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.25.0"
 
   if [ -f "$STAMP" ]; then
