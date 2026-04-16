@@ -6,6 +6,52 @@
 
 namespace py = pybind11;
 
+namespace {
+void set_span_attribute(otel_wrapper::SpanWrapper& span,
+                        const std::string& key,
+                        py::object value) {
+    if (py::isinstance<py::bool_>(value)) {
+        span.set_attribute(key, value.cast<bool>());
+    } else if (py::isinstance<py::int_>(value)) {
+        span.set_attribute(key, value.cast<int64_t>());
+    } else if (py::isinstance<py::float_>(value)) {
+        span.set_attribute(key, value.cast<double>());
+    } else if (py::isinstance<py::str>(value)) {
+        span.set_attribute(key, value.cast<std::string>());
+    } else if (py::isinstance<py::sequence>(value)) {
+        auto seq = value.cast<py::sequence>();
+        if (seq.size() == 0) return;
+        py::object first = seq[0];
+        if (py::isinstance<py::bool_>(first)) {
+            std::vector<bool> v;
+            v.reserve(seq.size());
+            for (auto item : seq) v.push_back(item.cast<bool>());
+            span.set_attribute(key, v);
+        } else if (py::isinstance<py::int_>(first)) {
+            std::vector<int64_t> v;
+            v.reserve(seq.size());
+            for (auto item : seq) v.push_back(item.cast<int64_t>());
+            span.set_attribute(key, v);
+        } else if (py::isinstance<py::float_>(first)) {
+            std::vector<double> v;
+            v.reserve(seq.size());
+            for (auto item : seq) v.push_back(item.cast<double>());
+            span.set_attribute(key, v);
+        } else if (py::isinstance<py::str>(first)) {
+            std::vector<std::string> v;
+            v.reserve(seq.size());
+            for (auto item : seq) v.push_back(item.cast<std::string>());
+            span.set_attribute(key, v);
+        } else {
+            throw py::type_error("Sequence elements must be str, bool, int, or float");
+        }
+    } else {
+        throw py::type_error(
+            "Attribute value must be str, bool, int, float, or a homogeneous sequence thereof");
+    }
+}
+}  // namespace
+
 PYBIND11_MODULE(otel_cpp_tracer, m) {
     m.doc() = "Python bindings for OpenTelemetry C++ SDK tracing";
 
@@ -41,6 +87,25 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         .value("CONSUMER", opentelemetry::trace::SpanKind::kConsumer)
         .export_values();
 
+    // SpanContextWrapper class
+    py::class_<otel_wrapper::SpanContextWrapper, std::shared_ptr<otel_wrapper::SpanContextWrapper>>(m, "SpanContext")
+        .def_property_readonly("trace_id", [](const otel_wrapper::SpanContextWrapper& self) -> py::object {
+            auto builtins = py::module_::import("builtins");
+            return builtins.attr("int")(self.get_trace_id(), 16);
+        }, "Trace ID as an integer (128-bit), matching opentelemetry.trace.SpanContext")
+        .def_property_readonly("span_id", [](const otel_wrapper::SpanContextWrapper& self) -> py::object {
+            auto builtins = py::module_::import("builtins");
+            return builtins.attr("int")(self.get_span_id(), 16);
+        }, "Span ID as an integer (64-bit), matching opentelemetry.trace.SpanContext")
+        .def_property_readonly("trace_flags", &otel_wrapper::SpanContextWrapper::get_trace_flags,
+                              "Trace flags byte")
+        .def_property_readonly("is_remote", &otel_wrapper::SpanContextWrapper::get_is_remote,
+                              "True if the span context was propagated from a remote parent")
+        .def_property_readonly("is_valid", &otel_wrapper::SpanContextWrapper::get_is_valid,
+                              "True if the span context has a valid trace ID and span ID")
+        .def_property_readonly("trace_state", &otel_wrapper::SpanContextWrapper::get_trace_state,
+                              "Trace state as a W3C tracestate header string");
+
     // ContextWrapper class
     py::class_<otel_wrapper::ContextWrapper, std::shared_ptr<otel_wrapper::ContextWrapper>>(m, "Context")
         .def(py::init<>(), "Create a context from the current runtime context")
@@ -62,25 +127,24 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
 
     // SpanWrapper class
     py::class_<otel_wrapper::SpanWrapper, std::shared_ptr<otel_wrapper::SpanWrapper>>(m, "Span")
-        .def("set_attribute", py::overload_cast<const std::string&, const std::string&>(
-                 &otel_wrapper::SpanWrapper::set_attribute),
+        .def("set_attribute",
+             [](otel_wrapper::SpanWrapper& self, const std::string& key, py::object value) {
+                 set_span_attribute(self, key, value);
+             },
              py::arg("key"), py::arg("value"),
-             "Set a string attribute on the span")
+             "Set an attribute on the span. Accepts str, bool, int, float, or a homogeneous "
+             "sequence of any of those types, matching opentelemetry.trace.types.AttributeValue.")
 
-        .def("set_attribute", py::overload_cast<const std::string&, int64_t>(
-                 &otel_wrapper::SpanWrapper::set_attribute),
-             py::arg("key"), py::arg("value"),
-             "Set an integer attribute on the span")
-
-        .def("set_attribute", py::overload_cast<const std::string&, double>(
-                 &otel_wrapper::SpanWrapper::set_attribute),
-             py::arg("key"), py::arg("value"),
-             "Set a float attribute on the span")
-
-        .def("set_attribute", py::overload_cast<const std::string&, bool>(
-                 &otel_wrapper::SpanWrapper::set_attribute),
-             py::arg("key"), py::arg("value"),
-             "Set a boolean attribute on the span")
+        .def("set_attributes",
+             [](otel_wrapper::SpanWrapper& self, py::dict attributes) {
+                 for (auto item : attributes) {
+                     std::string key = py::str(item.first).cast<std::string>();
+                     py::object value = py::reinterpret_borrow<py::object>(item.second);
+                     set_span_attribute(self, key, value);
+                 }
+             },
+             py::arg("attributes"),
+             "Set multiple attributes on the span from a dict, matching opentelemetry.trace.Span.set_attributes.")
 
         .def("add_event", py::overload_cast<const std::string&>(
                  &otel_wrapper::SpanWrapper::add_event),
@@ -147,6 +211,9 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         .def("get_context", &otel_wrapper::SpanWrapper::get_context,
              "Get the context containing this span")
 
+        .def("get_span_context", &otel_wrapper::SpanWrapper::get_span_context,
+             "Get the SpanContext for this span (trace_id, span_id, trace_flags, is_remote, is_valid)")
+
         .def("__enter__", [](std::shared_ptr<otel_wrapper::SpanWrapper> self) {
             return self;
         })
@@ -204,19 +271,7 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
                      for (auto item : attrs_dict) {
                          std::string key = py::str(item.first).cast<std::string>();
                          py::object value = py::reinterpret_borrow<py::object>(item.second);
-
-                         if (py::isinstance<py::str>(value)) {
-                             span->set_attribute(key, value.cast<std::string>());
-                         } else if (py::isinstance<py::bool_>(value)) {
-                             span->set_attribute(key, value.cast<bool>());
-                         } else if (py::isinstance<py::int_>(value)) {
-                             span->set_attribute(key, value.cast<int64_t>());
-                         } else if (py::isinstance<py::float_>(value)) {
-                             span->set_attribute(key, value.cast<double>());
-                         } else {
-                             // Fallback: convert to string
-                             span->set_attribute(key, py::str(value).cast<std::string>());
-                         }
+                         set_span_attribute(*span, key, value);
                      }
                  }
 
@@ -267,19 +322,7 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
                      for (auto item : attrs_dict) {
                          std::string key = py::str(item.first).cast<std::string>();
                          py::object value = py::reinterpret_borrow<py::object>(item.second);
-
-                         if (py::isinstance<py::str>(value)) {
-                             span->set_attribute(key, value.cast<std::string>());
-                         } else if (py::isinstance<py::bool_>(value)) {
-                             span->set_attribute(key, value.cast<bool>());
-                         } else if (py::isinstance<py::int_>(value)) {
-                             span->set_attribute(key, value.cast<int64_t>());
-                         } else if (py::isinstance<py::float_>(value)) {
-                             span->set_attribute(key, value.cast<double>());
-                         } else {
-                             // Fallback: convert to string
-                             span->set_attribute(key, py::str(value).cast<std::string>());
-                         }
+                         set_span_attribute(*span, key, value);
                      }
                  }
 
@@ -304,8 +347,8 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         .def("get_tracer",
              [](otel_wrapper::TracerProviderWrapper& self,
                 const std::string& name,
-                const std::string& version,
-                const std::string& schema_url,
+                py::object version,
+                py::object schema_url,
                 py::object attributes,
                 otel_wrapper::TracerProviderWrapper* provider) {
                  // Convert None to empty map
@@ -316,8 +359,8 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
                  return self.get_tracer(name, version, schema_url, attrs_map, provider);
              },
              py::arg("name"),
-             py::arg("version") = "",
-             py::arg("schema_url") = "",
+             py::arg("version") = py::none(),
+             py::arg("schema_url") = py::none(),
              py::arg("attributes") = py::none(),
              py::arg("provider") = nullptr,
              "Get a tracer with the given name, optional version, schema URL, attributes, and provider")

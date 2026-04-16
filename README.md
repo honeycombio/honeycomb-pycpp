@@ -55,8 +55,7 @@ pip install .
 The build process uses CMake through setuptools:
 
 ```bash
-# Build the extension in place
-python setup.py build_ext --inplace
+python -m pip wheel . --wheel-dir=./build --no-deps -v
 
 # Or use pip
 pip install -v .

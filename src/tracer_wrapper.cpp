@@ -204,6 +204,36 @@ void SpanWrapper::set_attribute(const std::string& key, bool value) {
     }
 }
 
+void SpanWrapper::set_attribute(const std::string& key, const std::vector<std::string>& value) {
+    if (span_) {
+        std::vector<nostd::string_view> svs;
+        svs.reserve(value.size());
+        for (const auto& s : value) svs.push_back(s);
+        span_->SetAttribute(key, nostd::span<const nostd::string_view>(svs.data(), svs.size()));
+    }
+}
+
+void SpanWrapper::set_attribute(const std::string& key, const std::vector<int64_t>& value) {
+    if (span_) {
+        span_->SetAttribute(key, nostd::span<const int64_t>(value.data(), value.size()));
+    }
+}
+
+void SpanWrapper::set_attribute(const std::string& key, const std::vector<double>& value) {
+    if (span_) {
+        span_->SetAttribute(key, nostd::span<const double>(value.data(), value.size()));
+    }
+}
+
+void SpanWrapper::set_attribute(const std::string& key, const std::vector<bool>& value) {
+    if (span_) {
+        // std::vector<bool> is a bitset; copy to a contiguous bool array for nostd::span
+        auto bool_arr = std::make_unique<bool[]>(value.size());
+        for (size_t i = 0; i < value.size(); ++i) bool_arr[i] = value[i];
+        span_->SetAttribute(key, nostd::span<const bool>(bool_arr.get(), value.size()));
+    }
+}
+
 void SpanWrapper::add_event(const std::string& name) {
     if (span_) {
         span_->AddEvent(name);
@@ -268,6 +298,30 @@ std::string SpanWrapper::get_span_context_span_id() const {
 
 std::string SpanWrapper::get_parent_span_id() const {
     return parent_span_id_;
+}
+
+std::shared_ptr<SpanContextWrapper> SpanWrapper::get_span_context() const {
+    if (!span_) return nullptr;
+
+    auto sc = span_->GetContext();
+
+    auto bytes_to_hex = [](auto id_bytes) -> std::string {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (auto byte : id_bytes) {
+            ss << std::setw(2) << static_cast<int>(byte);
+        }
+        return ss.str();
+    };
+
+    return std::make_shared<SpanContextWrapper>(
+        bytes_to_hex(sc.trace_id().Id()),
+        bytes_to_hex(sc.span_id().Id()),
+        sc.trace_flags().flags(),
+        sc.IsRemote(),
+        sc.IsValid(),
+        sc.trace_state()->ToHeader()
+    );
 }
 
 std::shared_ptr<ContextWrapper> SpanWrapper::get_context() const {
@@ -380,11 +434,9 @@ TracerProviderWrapper::TracerProviderWrapper(const std::string& service_name,
 
     if (exporter_type == "console" || exporter_type == "ostream") {
         initialize_console_exporter();
-    } else if (exporter_type == "otlp" || exporter_type == "otlp_http") {
-        initialize_otlp_exporter();
     } else {
-        // Default to console
-        initialize_console_exporter();
+        // Default to OTLP
+        initialize_otlp_exporter();
     }
 }
 
@@ -416,14 +468,9 @@ void TracerProviderWrapper::initialize_console_exporter() {
     trace_api::Provider::SetTracerProvider(api_provider);
 }
 
-void TracerProviderWrapper::initialize_otlp_exporter(const std::string& endpoint) {
-    // Create OTLP HTTP exporter
+void TracerProviderWrapper::initialize_otlp_exporter() {
+    // Create OTLP HTTP exporter using env variables
     opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
-    if (!endpoint.empty()) {
-        opts.url = endpoint;
-    } else {
-        opts.url = "http://localhost:4318/v1/traces";
-    }
 
     auto exporter = std::unique_ptr<trace_sdk::SpanExporter>(
         new opentelemetry::exporter::otlp::OtlpHttpExporter(opts));
@@ -452,8 +499,8 @@ void TracerProviderWrapper::initialize_otlp_exporter(const std::string& endpoint
 
 std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
     const std::string& name,
-    const std::string& version,
-    const std::string& schema_url,
+    py::object version,
+    py::object schema_url,
     const std::map<std::string, std::string>& attributes,
     TracerProviderWrapper* provider) {
 
@@ -462,11 +509,14 @@ std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
 
     if (!target_provider) return nullptr;
 
+    auto ver_str = (!version.is_none()) ? version.cast<std::string>() : "";
+    auto schema_str = (!schema_url.is_none()) ? schema_url.cast<std::string>() : "";
+
     // TODO: Apply attributes to the InstrumentationScope when creating the tracer
     // For now, attributes are accepted but not used (requires OpenTelemetry C++ ABI v2 or manual Tracer construction)
     (void)attributes;  // Suppress unused parameter warning
 
-    auto tracer = target_provider->GetTracer(name, version, schema_url);
+    auto tracer = target_provider->GetTracer(name, ver_str, schema_str);
     return std::make_shared<TracerWrapper>(tracer);
 }
 

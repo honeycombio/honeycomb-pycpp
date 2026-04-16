@@ -6,6 +6,7 @@
 #include <vector>
 #include <optional>
 
+#include <pybind11/pybind11.h>
 #include "opentelemetry/trace/provider.h"
 #include "opentelemetry/trace/tracer.h"
 #include "opentelemetry/trace/scope.h"
@@ -14,6 +15,7 @@
 #include "opentelemetry/sdk/trace/simple_processor.h"
 #include "opentelemetry/sdk/trace/batch_span_processor.h"
 
+namespace py = pybind11;
 namespace otel_wrapper {
 
 namespace trace_api = opentelemetry::trace;
@@ -23,6 +25,34 @@ namespace context = opentelemetry::context;
 
 // Forward declaration
 class SpanWrapper;
+
+// SpanContext wrapper to expose span context fields (mirrors opentelemetry.trace.SpanContext)
+class SpanContextWrapper {
+public:
+    SpanContextWrapper(const std::string& trace_id,
+                       const std::string& span_id,
+                       uint8_t trace_flags,
+                       bool is_remote,
+                       bool is_valid,
+                       const std::string& trace_state = "")
+        : trace_id_(trace_id), span_id_(span_id), trace_flags_(trace_flags),
+          is_remote_(is_remote), is_valid_(is_valid), trace_state_(trace_state) {}
+
+    std::string get_trace_id() const { return trace_id_; }
+    std::string get_span_id() const { return span_id_; }
+    uint8_t get_trace_flags() const { return trace_flags_; }
+    bool get_is_remote() const { return is_remote_; }
+    bool get_is_valid() const { return is_valid_; }
+    std::string get_trace_state() const { return trace_state_; }
+
+private:
+    std::string trace_id_;
+    std::string span_id_;
+    uint8_t trace_flags_;
+    bool is_remote_;
+    bool is_valid_;
+    std::string trace_state_;
+};
 
 // Status class to wrap and match Python OpenTelemetry API (opentelemetry.trace.status.Status)
 class Status {
@@ -93,6 +123,10 @@ public:
     void set_attribute(const std::string& key, int64_t value);
     void set_attribute(const std::string& key, double value);
     void set_attribute(const std::string& key, bool value);
+    void set_attribute(const std::string& key, const std::vector<std::string>& value);
+    void set_attribute(const std::string& key, const std::vector<int64_t>& value);
+    void set_attribute(const std::string& key, const std::vector<double>& value);
+    void set_attribute(const std::string& key, const std::vector<bool>& value);
 
     void add_event(const std::string& name);
     void add_event(const std::string& name, const std::map<std::string, std::string>& attributes);
@@ -104,6 +138,7 @@ public:
     std::string get_span_context_trace_id() const;
     std::string get_span_context_span_id() const;
     std::string get_parent_span_id() const;
+    std::shared_ptr<SpanContextWrapper> get_span_context() const;
 
     // Get the span kind
     int get_kind() const { return kind_; }
@@ -150,8 +185,8 @@ public:
 
     std::shared_ptr<TracerWrapper> get_tracer(
         const std::string& name,
-        const std::string& version = "",
-        const std::string& schema_url = "",
+        py::object version = py::none(),
+        py::object schema_url = py::none(),
         const std::map<std::string, std::string>& attributes = {},
         TracerProviderWrapper* provider = nullptr);
 
@@ -159,7 +194,7 @@ public:
 
 private:
     void initialize_console_exporter();
-    void initialize_otlp_exporter(const std::string& endpoint = "");
+    void initialize_otlp_exporter();
 
     std::shared_ptr<trace_sdk::TracerProvider> provider_;
     std::string service_name_;
