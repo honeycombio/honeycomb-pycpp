@@ -340,7 +340,7 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         m, "TracerProvider")
         .def(py::init<const std::string&, const std::string&>(),
              py::arg("service_name"),
-             py::arg("exporter_type") = "console",
+             py::arg("exporter_type") = "otlp",
              "Create a new tracer provider with the given service name and exporter type.\n"
              "Supported exporter types: 'console', 'otlp'")
 

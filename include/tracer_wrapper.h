@@ -180,7 +180,7 @@ private:
 class TracerProviderWrapper {
 public:
     TracerProviderWrapper(const std::string& service_name,
-                         const std::string& exporter_type = "console");
+                         const std::string& exporter_type = "otlp");
     ~TracerProviderWrapper();
 
     std::shared_ptr<TracerWrapper> get_tracer(

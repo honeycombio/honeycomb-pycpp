@@ -67,8 +67,8 @@ class CMakeBuild(build_ext):
 setup(
     name="opentelemetry-pybind11",
     version="0.1.0",
-    author="Alex Boten",
-    author_email="alexboten@honeycomb.io",
+    author="Honeycomb Authors",
+    author_email="support@honeycomb.io",
     description="Python bindings for OpenTelemetry C++ SDK",
     long_description=open("README.md").read() if os.path.exists("README.md") else "",
     long_description_content_type="text/markdown",
@@ -77,5 +77,4 @@ setup(
     zip_safe=False,
     python_requires=">=3.10",
     install_requires=[],
-    license="Apache-2.0",
 )

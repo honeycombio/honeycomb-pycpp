@@ -9,6 +9,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Set position independent code
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Find Protobuf (required by OpenTelemetry)
+find_package(Protobuf REQUIRED)
+
 # Find pybind11 first - it will find Python for us
 find_package(pybind11 CONFIG REQUIRED)
 
