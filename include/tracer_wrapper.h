@@ -134,7 +134,7 @@ public:
     void add_event(const std::string& name, const std::map<std::string, std::string>& attributes, uint64_t timestamp_ns);
 
     void set_status(const Status& status);
-    void end();
+    void end(std::optional<uint64_t> end_time_ns = std::nullopt);
 
     bool is_recording() const;
     std::string get_span_context_trace_id() const;

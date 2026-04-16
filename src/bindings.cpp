@@ -207,8 +207,16 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         }, py::arg("status"),
            "Set the status of the span. Accepts either otel_cpp_tracer.Status or opentelemetry.trace.status.Status")
 
-        .def("end", &otel_wrapper::SpanWrapper::end,
-             "End the span explicitly")
+        .def("end",
+             [](otel_wrapper::SpanWrapper& self, py::object end_time) {
+                 if (end_time.is_none()) {
+                     self.end();
+                 } else {
+                     self.end(end_time.cast<uint64_t>());
+                 }
+             },
+             py::arg("end_time") = py::none(),
+             "End the span, with an optional end_time (nanoseconds since UNIX epoch)")
 
         .def("is_recording", &otel_wrapper::SpanWrapper::is_recording,
              "Check if the span is recording")

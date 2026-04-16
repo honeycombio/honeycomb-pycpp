@@ -278,9 +278,16 @@ void SpanWrapper::set_status(const Status& status) {
     }
 }
 
-void SpanWrapper::end() {
+void SpanWrapper::end(std::optional<uint64_t> end_time_ns) {
     if (span_) {
-        span_->End();
+        if (end_time_ns.has_value()) {
+            trace_api::EndSpanOptions options;
+            options.end_steady_time = opentelemetry::common::SteadyTimestamp{
+                std::chrono::nanoseconds(end_time_ns.value())};
+            span_->End(options);
+        } else {
+            span_->End();
+        }
     }
 }
 
