@@ -139,6 +139,7 @@ public:
                   const std::map<std::string, opentelemetry::common::AttributeValue>& attributes = {});
 
     void set_status(const Status& status);
+    void update_name(const std::string& name);
     void end(std::optional<uint64_t> end_time_ns = std::nullopt);
 
     bool is_recording() const;

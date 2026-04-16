@@ -228,6 +228,10 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
         }, py::arg("status"),
            "Set the status of the span. Accepts either otel_cpp_tracer.Status or opentelemetry.trace.status.Status")
 
+        .def("update_name", &otel_wrapper::SpanWrapper::update_name,
+             py::arg("name"),
+             "Update the span name, overriding the name set at creation.")
+
         .def("end",
              [](otel_wrapper::SpanWrapper& self, py::object end_time) {
                  if (end_time.is_none()) {

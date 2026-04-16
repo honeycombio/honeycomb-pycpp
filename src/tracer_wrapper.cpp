@@ -300,6 +300,12 @@ void SpanWrapper::set_status(const Status& status) {
     }
 }
 
+void SpanWrapper::update_name(const std::string& name) {
+    if (span_) {
+        span_->UpdateName(name);
+    }
+}
+
 void SpanWrapper::end(std::optional<uint64_t> end_time_ns) {
     if (span_) {
         if (end_time_ns.has_value()) {
