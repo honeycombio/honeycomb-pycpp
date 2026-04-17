@@ -8,6 +8,7 @@
 
 #include <pybind11/pybind11.h>
 #include "opentelemetry/common/attribute_value.h"
+#include "opentelemetry/common/key_value_iterable.h"
 #include "opentelemetry/trace/provider.h"
 #include "opentelemetry/trace/tracer.h"
 #include "opentelemetry/trace/scope.h"
@@ -131,12 +132,12 @@ public:
 
     void add_event(const std::string& name);
     void add_event(const std::string& name, uint64_t timestamp_ns);
-    void add_event(const std::string& name, const std::map<std::string, opentelemetry::common::AttributeValue>& attributes);
-    void add_event(const std::string& name, const std::map<std::string, opentelemetry::common::AttributeValue>& attributes, uint64_t timestamp_ns);
+    void add_event(const std::string& name, const opentelemetry::common::KeyValueIterable& attributes);
+    void add_event(const std::string& name, const opentelemetry::common::KeyValueIterable& attributes, uint64_t timestamp_ns);
 
     // add_link requires OpenTelemetry C++ ABI v2. On ABI v1 the call is a no-op.
     void add_link(const SpanContextWrapper& link_context,
-                  const std::map<std::string, opentelemetry::common::AttributeValue>& attributes = {});
+                  const opentelemetry::common::KeyValueIterable& attributes);
 
     void set_status(const Status& status);
     void update_name(const std::string& name);
@@ -168,7 +169,7 @@ public:
     // Start a span without making it current
     std::shared_ptr<SpanWrapper> start_span(
         const std::string& name,
-        const std::map<std::string, std::string>& attributes = {},
+        const opentelemetry::common::KeyValueIterable* attributes = nullptr,
         std::shared_ptr<ContextWrapper> context = nullptr,
         int kind = 0,  // SpanKind::kInternal
         uint64_t start_time = 0);  // 0 means use current time
@@ -176,7 +177,7 @@ public:
     // Start a span and make it the current active span
     std::shared_ptr<SpanWrapper> start_as_current_span(
         const std::string& name,
-        const std::map<std::string, std::string>& attributes = {},
+        const opentelemetry::common::KeyValueIterable* attributes = nullptr,
         std::shared_ptr<ContextWrapper> context = nullptr,
         int kind = 0,  // SpanKind::kInternal
         uint64_t start_time = 0);  // 0 means use current time
@@ -195,7 +196,7 @@ public:
         const std::string& name,
         py::object version = py::none(),
         py::object schema_url = py::none(),
-        const std::map<std::string, std::string>& attributes = {},
+        const opentelemetry::common::KeyValueIterable* attributes = nullptr,
         TracerProviderWrapper* provider = nullptr);
 
     void shutdown();

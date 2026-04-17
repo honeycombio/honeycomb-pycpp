@@ -53,7 +53,7 @@ class TestTracerProvider:
 
     def test_get_tracer_with_version(self, provider):
         """get_tracer accepts an optional version string."""
-        t = provider.get_tracer("my-lib", version="1.2.3")
+        t = provider.get_tracer("my-lib", instrumenting_library_version="1.2.3")
         assert t is not None
 
     def test_get_tracer_with_schema_url(self, provider):
@@ -69,10 +69,10 @@ class TestTracerProvider:
     def test_get_tracer_with_all_optional_params(self, provider):
         """get_tracer accepts all optional parameters together."""
         t = provider.get_tracer(
-            "my-lib",
-            version="2.0.0",
+            instrumenting_module_name="my-lib",
+            instrumenting_library_version="2.0.0",
             schema_url="https://example.com/schema",
-            attributes={"foo": "bar"},
+            attributes={"foo": "bar", "foo2": [False, True]},
         )
         assert t is not None
 
@@ -189,7 +189,11 @@ class TestTracerStartSpan:
         span.end()
 
     def test_with_attributes_int(self, tracer):
-        span = tracer.start_span("attr-int", attributes={"count": "42"})
+        span = tracer.start_span("attr-int", attributes={"count": 42})
+        span.end()
+
+    def test_with_attributes_list(self, tracer):
+        span = tracer.start_span("attr-int", attributes={"count_list": [42, 3, 4, 5]})
         span.end()
 
     def test_with_context_none(self, tracer):
@@ -280,6 +284,10 @@ class TestTracerStartAsCurrentSpan:
 
     def test_with_attributes(self, tracer):
         span = tracer.start_as_current_span("current-attrs", attributes={"x": "1"})
+        span.end()
+
+    def test_with_attributes_mixed(self, tracer):
+        span = tracer.start_as_current_span("current-attrs", attributes={"x": "1", "int_list": [1,2,3]})
         span.end()
 
     def test_with_context_none(self, tracer):
@@ -478,7 +486,7 @@ class TestSpanAddEvent:
 
     def test_with_all_fields(self, tracer):
         span = tracer.start_span("ev")
-        span.add_event("multi", attributes={"k1": 10, "k2": False}, timestamp=10)
+        span.add_event("multi", attributes={"k1": 10, "k2": False, "k3":[1,2,3]}, timestamp=10)
         span.end()
 
 # ===========================================================================
@@ -496,7 +504,7 @@ class TestSpanAddLink:
     def test_context_and_attributes(self, tracer):
         span1 = tracer.start_span("ev")
         span2 = tracer.start_span("ev-link")
-        span1.add_link(span2.get_span_context(), attributes={"first":1})
+        span1.add_link(span2.get_span_context(), attributes={"first":1, "second":[1,2,3]})
         span1.end()
         span2.end()
 

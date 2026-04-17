@@ -248,14 +248,14 @@ void SpanWrapper::add_event(const std::string& name, uint64_t timestamp_ns) {
 }
 
 void SpanWrapper::add_event(const std::string& name,
-                            const std::map<std::string, opentelemetry::common::AttributeValue>& attributes) {
+                            const opentelemetry::common::KeyValueIterable& attributes) {
     if (span_) {
         span_->AddEvent(name, attributes);
     }
 }
 
 void SpanWrapper::add_event(const std::string& name,
-                            const std::map<std::string, opentelemetry::common::AttributeValue>& attributes,
+                            const opentelemetry::common::KeyValueIterable& attributes,
                             uint64_t timestamp_ns) {
     if (span_) {
         opentelemetry::common::SystemTimestamp ts{std::chrono::nanoseconds(timestamp_ns)};
@@ -264,7 +264,7 @@ void SpanWrapper::add_event(const std::string& name,
 }
 
 void SpanWrapper::add_link(const SpanContextWrapper& link_context,
-                           const std::map<std::string, opentelemetry::common::AttributeValue>& attributes) {
+                           const opentelemetry::common::KeyValueIterable& attributes) {
 #if OPENTELEMETRY_ABI_VERSION_NO >= 2
     if (!span_) return;
 
@@ -394,7 +394,7 @@ TracerWrapper::TracerWrapper(nostd::shared_ptr<trace_api::Tracer> tracer)
 
 std::shared_ptr<SpanWrapper> TracerWrapper::start_span(
     const std::string& name,
-    const std::map<std::string, std::string>& attributes,
+    const opentelemetry::common::KeyValueIterable* attributes,
     std::shared_ptr<ContextWrapper> context,
     int kind,
     uint64_t start_time) {
@@ -423,19 +423,16 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_span(
             std::chrono::nanoseconds(start_time));
     }
 
-    auto span = tracer_->StartSpan(name, options);
-
-    // Set attributes after span creation
-    for (const auto& [key, value] : attributes) {
-        span->SetAttribute(key, value);
-    }
+    auto span = attributes
+        ? tracer_->StartSpan(name, *attributes, options)
+        : tracer_->StartSpan(name, options);
 
     return std::make_shared<SpanWrapper>(span, kind, parent_ctx);
 }
 
 std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
     const std::string& name,
-    const std::map<std::string, std::string>& attributes,
+    const opentelemetry::common::KeyValueIterable* attributes,
     std::shared_ptr<ContextWrapper> context,
     int kind,
     uint64_t start_time) {
@@ -469,12 +466,9 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
             std::chrono::nanoseconds(start_time));
     }
 
-    auto span = tracer_->StartSpan(name, options);
-
-    // Set attributes after span creation
-    for (const auto& [key, value] : attributes) {
-        span->SetAttribute(key, value);
-    }
+    auto span = attributes
+        ? tracer_->StartSpan(name, *attributes, options)
+        : tracer_->StartSpan(name, options);
 
     // Make this span the current span by creating a scope
     auto scope = tracer_->WithActiveSpan(span);
@@ -556,7 +550,7 @@ std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
     const std::string& name,
     py::object version,
     py::object schema_url,
-    const std::map<std::string, std::string>& attributes,
+    const opentelemetry::common::KeyValueIterable* attributes,
     TracerProviderWrapper* provider) {
 
     // Use the provided provider or fall back to this instance's provider
