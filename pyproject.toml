@@ -20,7 +20,10 @@ Homepage = "https://github.com/honeycombio/opentelemetry-pybind11"
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
 skip = "*-musllinux_*"
 build-verbosity = 1
-before-build = "pip install -r requirements-dev.txt"
+before-build = """
+  pip install -r requirements-dev.txt
+  pip freeze
+"""
 environment = { PIP_ONLY_BINARY="cmake" }
 test-command = "python -c 'import otel_cpp_tracer; print(\"Import successful\")'"
 
