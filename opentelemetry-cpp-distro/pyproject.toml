@@ -32,14 +32,14 @@ dependencies = [
 ]
 
 [project.entry-points.opentelemetry_configurator]
-configurator = "opentelemetry.cpp.distro:OpenTelemetryConfigurator"
+cpp_configurator = "opentelemetry.cpp.distro:OpenTelemetryConfigurator"
 
 [project.entry-points.opentelemetry_distro]
-distro = "opentelemetry.cpp.distro:OpenTelemetryDistro"
+cpp_distro = "opentelemetry.cpp.distro:OpenTelemetryDistro"
 
 [project.urls]
-Homepage = "https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/opentelemetry-cpp-distro"
-Repository = "https://github.com/open-telemetry/opentelemetry-python-contrib"
+Homepage = "https://github.com/honeycombio/opentelemetry-pybind11/tree/main/opentelemetry-cpp-distro"
+Repository = "https://github.com/honeycombio/opentelemetry-pybind11"
 
 [tool.hatch.version]
 path = "src/opentelemetry/cpp/distro/version.py"

@@ -5,7 +5,7 @@ import os
 
 from opentelemetry.instrumentation.distro import BaseDistro
 from opentelemetry import trace
-from opentelemetry.distro.patch_api import patch
+from opentelemetry.cpp.distro.patch_api import patch
 import otel_cpp_tracer as otel
 
 
