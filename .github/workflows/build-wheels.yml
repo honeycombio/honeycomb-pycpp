@@ -11,65 +11,51 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheels on Linux (${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
+    name: Build wheels on (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - arch: x86_64
-            runner: ubuntu-latest
-          - arch: aarch64
-            runner: ubuntu-latest  # Change to 'ubuntu-latest-arm' if you have access to ARM64 runners
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+          - os: macos-15-intel
+            macosx_deployment_target: "15.0"
+          - os: macos-14
+            macosx_deployment_target: "14.0"
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # Set up QEMU for cross-compilation (only needed when using x86_64 runner for ARM builds)
-      # Comment out this step if using native ARM64 runners
-      - name: Set up QEMU
-        if: matrix.arch == 'aarch64' && matrix.runner != 'ubuntu-latest-arm'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Cache Linux build deps
-        uses: actions/cache@v4
-        with:
-          path: .cibw-cache/${{ matrix.arch }}
-          key: cibw-otel-deps-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.25.0-${{ matrix.arch }}
-
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v3.4.1
         env:
-          # Override architecture from matrix
-          CIBW_ARCHS_LINUX: ${{ matrix.arch }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.arch }}
+          name: wheels-macos-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
-  # Optional: Create a combined artifacts job
   merge_wheels:
     name: Merge wheel artifacts
-    needs: build_wheels
+    needs: [build_wheels]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: all-wheels
-          pattern: wheels-linux-*
+          pattern: wheels-*
           merge-multiple: true
 
       - name: Upload merged wheels
         uses: actions/upload-artifact@v4
         with:
-          name: all-linux-wheels
+          name: all-wheels
           path: all-wheels/*.whl
           if-no-files-found: error
 

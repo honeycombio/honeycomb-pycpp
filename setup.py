@@ -44,10 +44,19 @@ class CMakeBuild(build_ext):
         build_args = []
 
         if sys.platform.startswith("darwin"):
-            # Cross-compile support for macOS
+            # ARCHFLAGS is set by cibuildwheel as "-arch arm64" (compiler flags),
+            # but CMAKE_OSX_ARCHITECTURES expects just "arm64" or "arm64;x86_64".
+            import re
             archs = os.environ.get("ARCHFLAGS", "")
             if archs:
-                cmake_args.append(f"-DCMAKE_OSX_ARCHITECTURES={archs}")
+                arch_names = re.findall(r"-arch\s+(\S+)", archs)
+                cmake_args.append(
+                    f"-DCMAKE_OSX_ARCHITECTURES={';'.join(arch_names) if arch_names else archs}"
+                )
+
+            deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET", "")
+            if deployment_target:
+                cmake_args.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}")
 
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:

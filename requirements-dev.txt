@@ -2,7 +2,9 @@
 pybind11>=2.10.0
 pybind11[global]
 cmake>=3.15
-setuptools
+
+# OpenTelemetry Python API (for interop testing)
+opentelemetry-api>=1.0.0
 
 # Development tools
 pytest>=7.0.0
