@@ -1,7 +1,7 @@
 # OpenTelemetry C++ Python Bindings
 
-[![OSS Lifecycle](https://img.shields.io/osslifecycle/honeycombio/opentelemetry-pybind11?color=success)](https://github.com/honeycombio/home/blob/main/honeycomb-oss-lifecycle-and-practices.md)
-[![Build](https://github.com/honeycombio/opentelemetry-pybind11/actions/workflows/build-wheels.yml/badge.svg)](https://github.com/honeycombio/opentelemetry-pybind11/actions/workflows/build-wheels.yml)
+[![OSS Lifecycle](https://img.shields.io/osslifecycle/honeycombio/honeycomb-pycpp?color=success)](https://github.com/honeycombio/home/blob/main/honeycomb-oss-lifecycle-and-practices.md)
+[![Build](https://github.com/honeycombio/honeycomb-pycpp/actions/workflows/build-wheels.yml/badge.svg)](https://github.com/honeycombio/honeycomb-pycpp/actions/workflows/build-wheels.yml)
 
 Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracing capabilities through a Pythonic interface. This library is **experimental**.
 
@@ -40,8 +40,8 @@ Python bindings for the OpenTelemetry C++ SDK, providing high-performance tracin
 
 ```bash
 # Clone the repository
-git clone https://github.com/honeycombio/opentelemetry-pybind11
-cd opentelemetry-pybind11
+git clone https://github.com/honeycombio/honeycomb-pycpp
+cd honeycomb-pycpp
 
 # Install in development mode
 pip install -e .
@@ -203,7 +203,7 @@ See the `examples/` directory for more comprehensive examples:
 ## Project Structure
 
 ```
-opentelemetry-pybind11/
+honeycomb-pycpp/
 ├── CMakeLists.txt           # CMake build configuration
 ├── pyproject.toml           # Python project metadata
 ├── setup.py                 # Build script

@@ -28,7 +28,7 @@ classifiers = [
 dependencies = [
   "opentelemetry-api ~= 1.12",
   "opentelemetry-instrumentation == 0.61b0",
-  "opentelemetry-pybind11",
+  "honeycomb-pycpp",
 ]
 
 [project.entry-points.opentelemetry_configurator]
@@ -38,8 +38,8 @@ cpp_configurator = "opentelemetry.cpp.distro:OpenTelemetryConfigurator"
 cpp_distro = "opentelemetry.cpp.distro:OpenTelemetryDistro"
 
 [project.urls]
-Homepage = "https://github.com/honeycombio/opentelemetry-pybind11/tree/main/opentelemetry-cpp-distro"
-Repository = "https://github.com/honeycombio/opentelemetry-pybind11"
+Homepage = "https://github.com/honeycombio/honeycomb-pycpp/tree/main/opentelemetry-cpp-distro"
+Repository = "https://github.com/honeycombio/honeycomb-pycpp"
 
 [tool.hatch.version]
 path = "src/opentelemetry/cpp/distro/version.py"

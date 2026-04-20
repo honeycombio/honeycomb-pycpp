@@ -74,7 +74,7 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="opentelemetry-pybind11",
+    name="honeycomb-pycpp",
     version="0.1.0",
     author="Honeycomb Authors",
     author_email="support@honeycomb.io",
