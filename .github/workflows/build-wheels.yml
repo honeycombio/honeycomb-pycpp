@@ -74,9 +74,7 @@ jobs:
           brew install opentelemetry-cpp
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.4
-        env:
-          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
+        uses: pypa/cibuildwheel@v3.4.1
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v4
