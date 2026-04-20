@@ -54,6 +54,10 @@ class CMakeBuild(build_ext):
                     f"-DCMAKE_OSX_ARCHITECTURES={';'.join(arch_names) if arch_names else archs}"
                 )
 
+            deployment_target = os.environ.get("MACOSX_DEPLOYMENT_TARGET", "")
+            if deployment_target:
+                cmake_args.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}")
+
         # Set CMAKE_BUILD_PARALLEL_LEVEL to control the parallel build level
         if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:
             build_args += ["-j4"]
