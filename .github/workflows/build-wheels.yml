@@ -67,6 +67,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      
+      - name: Install OpenTelemetry C++
+        run: |
+          brew update
+          brew install opentelemetry-cpp
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.3
