@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_wheels:
+  build_linux_wheels:
     name: Build wheels on Linux (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -43,7 +43,6 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21.3
         env:
-          # Override architecture from matrix
           CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
       - name: Upload wheels as artifacts
@@ -53,23 +52,50 @@ jobs:
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
-  # Optional: Create a combined artifacts job
+  build_macos_wheels:
+    name: Build wheels on macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-13
+          - arch: arm64
+            runner: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          CIBW_ARCHS_MACOS: ${{ matrix.arch }}
+
+      - name: Upload wheels as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.arch }}
+          path: ./wheelhouse/*.whl
+          if-no-files-found: error
+
   merge_wheels:
     name: Merge wheel artifacts
-    needs: build_wheels
+    needs: [build_linux_wheels, build_macos_wheels]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: all-wheels
-          pattern: wheels-linux-*
+          pattern: wheels-*
           merge-multiple: true
 
       - name: Upload merged wheels
         uses: actions/upload-artifact@v4
         with:
-          name: all-linux-wheels
+          name: all-wheels
           path: all-wheels/*.whl
           if-no-files-found: error
 
