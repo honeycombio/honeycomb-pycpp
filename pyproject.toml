@@ -49,8 +49,8 @@ before-all = """
   # Install build tools and dependencies (check which package manager is available)
   if command -v yum &> /dev/null; then
     # Try cmake first, fall back to cmake3
-    yum install -y cmake gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool libyaml-cpp-dev || \
-    yum install -y cmake3 gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool libyaml-cpp-dev
+    yum install -y cmake gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool yaml-cpp-devel || \
+    yum install -y cmake3 gcc-c++ openssl-devel libcurl-devel zlib-devel wget tar autoconf automake libtool yaml-cpp-devel
     # Create cmake symlink if only cmake3 exists
     if [ ! -f /usr/bin/cmake ] && [ -f /usr/bin/cmake3 ]; then
       ln -sf /usr/bin/cmake3 /usr/bin/cmake
@@ -108,6 +108,7 @@ before-all = """
   cd opentelemetry-cpp-1.26.0
 
   cmake -B build \
+    -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_INSTALL_PREFIX=$INSTALLDIR \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOTELCPP_PROTO_PATH=/tmp/opentelemetry-proto-1.10.0 \
