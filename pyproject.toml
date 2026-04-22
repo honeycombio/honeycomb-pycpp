@@ -31,8 +31,8 @@ before-all = """
   # Per-arch cache under the project root, which cibuildwheel mounts at /project
   # inside the container — so it persists across runs via actions/cache in CI.
   ARCH=$(uname -m)
-  CACHE="/project/.cibw-cache/$ARCH"
-  STAMP="$CACHE/.built-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.25.0"
+  CACHE="~/.cibw-cache/$ARCH"
+  STAMP="$CACHE/.built-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.26.0"
 
   if [ -f "$STAMP" ]; then
     echo "Cache hit for $ARCH — restoring deps"

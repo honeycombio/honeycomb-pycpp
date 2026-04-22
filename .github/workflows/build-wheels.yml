@@ -17,16 +17,25 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
+            arch: x86_64
           - os: ubuntu-24.04-arm
+            arch: arm64
           - os: macos-15-intel
             macosx_deployment_target: "15.0"
+            arch: x86_64
           - os: macos-14
             macosx_deployment_target: "14.0"
+            arch: arm64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
+
+      - uses: actions/cache@v5
+        with:
+          path: .cibw-cache/${{ matrix.arch }}
+          key: cibw-otel-deps-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.26.0
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
@@ -34,7 +43,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
 
       - name: Upload wheels as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
@@ -46,14 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: all-wheels
           pattern: wheels-*
           merge-multiple: true
 
       - name: Upload merged wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: all-wheels
           path: all-wheels/*.whl
@@ -74,7 +83,7 @@ jobs:
       id-token: write  # required for trusted publishing
     steps:
       - name: Download wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: all-wheels
           path: dist/
