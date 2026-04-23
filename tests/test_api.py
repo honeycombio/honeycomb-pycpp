@@ -21,7 +21,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 @pytest.fixture(scope="module")
 def provider():
-    p = otel_cpp_tracer.TracerProvider("test-service", "console")
+    p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
     yield p
     p.shutdown()
 
@@ -38,12 +38,12 @@ def tracer(provider):
 class TestTracerProvider:
     def test_init_service_name_only(self):
         """TracerProvider can be created with only a service name."""
-        p = otel_cpp_tracer.TracerProvider("svc-only")
+        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()
 
     def test_init_with_console_exporter(self):
         """TracerProvider accepts 'console' as exporter_type."""
-        p = otel_cpp_tracer.TracerProvider("svc", "console")
+        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()
 
     def test_get_tracer_name_only(self, provider):
@@ -78,7 +78,7 @@ class TestTracerProvider:
 
     def test_shutdown(self):
         """TracerProvider.shutdown() completes without error."""
-        p = otel_cpp_tracer.TracerProvider("shutdown-test", "console")
+        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()  # should not raise
 
 

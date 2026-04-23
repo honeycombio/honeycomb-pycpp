@@ -59,7 +59,7 @@ before-all = """
     apt-get update
     apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool libyaml-cpp-dev
   elif command -v brew &> /dev/null; then
-    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp
+    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp grpc
     OPENSSL_OPTS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
     CURL_OPTS="-DCURL_ROOT_DIR=$(brew --prefix curl)"
     CURL_SSL_OPTS="--with-openssl=$(brew --prefix openssl)"
@@ -76,19 +76,21 @@ before-all = """
   make install
   ldconfig || true
 
-  # Build and install a newer protobuf with CMake (required for OpenTelemetry)
-  cd /tmp
-  wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-3.21.12.tar.gz
-  tar -xzf protobuf-cpp-3.21.12.tar.gz
-  cd protobuf-3.21.12
-  cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
-  cmake --build build -j2
-  cmake --install build
-  ldconfig || true
+  if ! command -v brew &> /dev/null; then
+    # Build and install a newer protobuf with CMake (required for OpenTelemetry)
+    cd /tmp
+    wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-3.21.12.tar.gz
+    tar -xzf protobuf-cpp-3.21.12.tar.gz
+    cd protobuf-3.21.12
+    cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
+    cmake --build build -j2
+    cmake --install build
+    ldconfig || true
+  fi
 
   # Install nlohmann-json
   cd /tmp
-  wget -q https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  wget -q https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
   tar -xf json.tar.xz
   cd json
   cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DJSON_BuildTests=OFF
@@ -99,7 +101,6 @@ before-all = """
   cd /tmp
   wget -q https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v1.10.0.tar.gz
   tar -xzf v1.10.0.tar.gz
-
 
   # Install OpenTelemetry C++ SDK v1.26 (includes semantic conventions)
   cd /tmp
@@ -133,5 +134,5 @@ before-all = """
 
   # Clean up source tarballs
   cd /
-  rm -rf /tmp/*
+  rm -rf /tmp/* || true
 """

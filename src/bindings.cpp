@@ -497,11 +497,9 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
     // TracerProviderWrapper class
     py::class_<otel_wrapper::TracerProviderWrapper, std::shared_ptr<otel_wrapper::TracerProviderWrapper>>(
         m, "TracerProvider")
-        .def(py::init<const std::string&, const std::string&>(),
-             py::arg("service_name"),
-             py::arg("exporter_type") = "otlp",
-             "Create a new tracer provider with the given service name and exporter type.\n"
-             "Supported exporter types: 'console', 'otlp'")
+        .def(py::init<const std::string&>(),
+             py::arg("path"),
+             "Create a new tracer provider with the given path to a configuration file.")
 
         .def("get_tracer",
              [](otel_wrapper::TracerProviderWrapper& self,

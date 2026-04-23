@@ -16,6 +16,8 @@
 #include "opentelemetry/sdk/trace/tracer_provider.h"
 #include "opentelemetry/sdk/trace/simple_processor.h"
 #include "opentelemetry/sdk/trace/batch_span_processor.h"
+#include "opentelemetry/sdk/configuration/configuration.h"
+#include "opentelemetry/sdk/configuration/configured_sdk.h"
 
 namespace py = pybind11;
 namespace otel_wrapper {
@@ -188,8 +190,7 @@ private:
 
 class TracerProviderWrapper {
 public:
-    TracerProviderWrapper(const std::string& service_name,
-                         const std::string& exporter_type = "otlp");
+    TracerProviderWrapper(const std::string& path);
     ~TracerProviderWrapper();
 
     std::shared_ptr<TracerWrapper> get_tracer(
@@ -202,10 +203,7 @@ public:
     void shutdown();
 
 private:
-    void initialize_console_exporter();
-    void initialize_otlp_exporter();
-
-    std::shared_ptr<trace_sdk::TracerProvider> provider_;
+    std::unique_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
     std::string service_name_;
 };
 

@@ -49,10 +49,16 @@ pybind11_add_module(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::trace
     opentelemetry-cpp::common
+    opentelemetry-cpp::configuration
+    opentelemetry-cpp::otlp_builder_utils
+    opentelemetry-cpp::otlp_http_exporter
+    opentelemetry-cpp::otlp_http_exporter_builder
+    opentelemetry-cpp::otlp_grpc_exporter
+    opentelemetry-cpp::otlp_grpc_exporter_builder
+    opentelemetry-cpp::ostream_span_exporter
+    opentelemetry-cpp::ostream_span_exporter_builder
     opentelemetry-cpp::resources
     opentelemetry-cpp::version
-    opentelemetry-cpp::ostream_span_exporter
-    opentelemetry-cpp::otlp_http_exporter
     CURL::libcurl
     nlohmann_json::nlohmann_json
     ZLIB::ZLIB

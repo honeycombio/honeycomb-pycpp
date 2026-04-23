@@ -1,7 +1,15 @@
 #include "tracer_wrapper.h"
 
 #include "opentelemetry/exporters/ostream/span_exporter.h"
+#include "opentelemetry/exporters/ostream/console_span_builder.h"
+#include "opentelemetry/exporters/otlp/otlp_grpc_span_builder.h"
 #include "opentelemetry/exporters/otlp/otlp_http_exporter.h"
+#include "opentelemetry/exporters/otlp/otlp_http_span_builder.h"
+#include "opentelemetry/sdk/configuration/yaml_configuration_parser.h"
+#include "opentelemetry/sdk/configuration/configuration.h"
+#include "opentelemetry/sdk/configuration/configured_sdk.h"
+#include "opentelemetry/sdk/configuration/always_on_sampler_configuration.h"
+#include "opentelemetry/sdk/configuration/parent_based_sampler_configuration.h"
 #include "opentelemetry/sdk/trace/tracer_provider.h"
 #include "opentelemetry/sdk/trace/simple_processor.h"
 #include "opentelemetry/sdk/trace/batch_span_processor.h"
@@ -477,73 +485,47 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
 }
 
 // TracerProviderWrapper Implementation
-TracerProviderWrapper::TracerProviderWrapper(const std::string& service_name,
-                                             const std::string& exporter_type)
-    : service_name_(service_name) {
+TracerProviderWrapper::TracerProviderWrapper(const std::string& path) {
+    std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
+      new opentelemetry::sdk::configuration::Registry);
 
-    if (exporter_type == "console" || exporter_type == "ostream") {
-        initialize_console_exporter();
-    } else {
-        // Default to OTLP
-        initialize_otlp_exporter();
+    opentelemetry::exporter::trace::ConsoleSpanBuilder::Register(registry.get());
+    opentelemetry::exporter::otlp::OtlpHttpSpanBuilder::Register(registry.get());
+    opentelemetry::exporter::otlp::OtlpGrpcSpanBuilder::Register(registry.get());
+    // TODO: add metrics/logs exporter support
+    // opentelemetry::exporter::otlp::OtlpHttpPushMetricBuilder::Register(registry.get());
+    // opentelemetry::exporter::otlp::OtlpHttpLogRecordBuilder::Register(registry.get());
+
+    auto model = opentelemetry::sdk::configuration::YamlConfigurationParser::ParseFile(path);
+    if (!model) throw std::runtime_error("Failed to parse config: " + path);
+
+    // Metrics and log exporters are not registered yet; clear these sections
+    // from the model so ConfiguredSdk::Create doesn't try to build them and crash.
+    model->meter_provider = nullptr;
+    model->logger_provider = nullptr;
+
+    // set a default sampler here
+    if (model->tracer_provider && !model->tracer_provider->sampler) {
+        auto root = std::make_unique<opentelemetry::sdk::configuration::AlwaysOnSamplerConfiguration>();
+        auto parent_based = std::make_unique<opentelemetry::sdk::configuration::ParentBasedSamplerConfiguration>();
+        parent_based->root = std::move(root);
+        model->tracer_provider->sampler = std::move(parent_based);
+    }
+
+    sdk_ = opentelemetry::sdk::configuration::ConfiguredSdk::Create(registry, model);
+    if (!sdk_) throw std::runtime_error("Unsupported configuration: " + path);
+
+    if (sdk_ != nullptr)
+    {
+        sdk_->Install();
+        // Set as global provider
+        std::shared_ptr<trace_api::TracerProvider> api_provider = sdk_->tracer_provider;
+        trace_api::Provider::SetTracerProvider(api_provider);
     }
 }
 
 TracerProviderWrapper::~TracerProviderWrapper() {
     shutdown();
-}
-
-void TracerProviderWrapper::initialize_console_exporter() {
-    // Create an ostream exporter
-    auto exporter = std::unique_ptr<trace_sdk::SpanExporter>(
-        new opentelemetry::exporter::trace::OStreamSpanExporter);
-
-    // Create a simple processor
-    auto processor = std::unique_ptr<trace_sdk::SpanProcessor>(
-        new trace_sdk::SimpleSpanProcessor(std::move(exporter)));
-
-    // Create resource with service name
-    auto resource_attributes = resource::ResourceAttributes{
-        {opentelemetry::semconv::service::kServiceName, service_name_}
-    };
-    auto resource_ = resource::Resource::Create(resource_attributes);
-
-    // Create tracer provider
-    provider_ = std::shared_ptr<trace_sdk::TracerProvider>(
-        new trace_sdk::TracerProvider(std::move(processor), resource_));
-
-    // Set as global provider
-    std::shared_ptr<trace_api::TracerProvider> api_provider = provider_;
-    trace_api::Provider::SetTracerProvider(api_provider);
-}
-
-void TracerProviderWrapper::initialize_otlp_exporter() {
-    // Create OTLP HTTP exporter using env variables
-    opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
-
-    auto exporter = std::unique_ptr<trace_sdk::SpanExporter>(
-        new opentelemetry::exporter::otlp::OtlpHttpExporter(opts));
-
-    // Create a batch processor for better performance
-    trace_sdk::BatchSpanProcessorOptions batch_opts;
-    batch_opts.max_queue_size = 1000000;
-    auto processor = std::unique_ptr<trace_sdk::SpanProcessor>(
-        new trace_sdk::BatchSpanProcessor(std::move(exporter), batch_opts));
-
-    // Create resource with service name
-    auto resource_attributes = resource::ResourceAttributes{
-        {opentelemetry::semconv::service::kServiceName, service_name_}
-    };
-    auto resource_ = resource::Resource::Create(resource_attributes);
-
-    // Create tracer provider
-    provider_ = std::shared_ptr<trace_sdk::TracerProvider>(
-        new trace_sdk::TracerProvider(std::move(processor), resource_));
-
-    // Set as global provider
-    std::shared_ptr<trace_api::TracerProvider> api_provider = provider_;
-    // std::shared_ptr<trace_api::TracerProvider> provider = trace_sdk::TracerProviderFactory::Create(std::move(processor));
-    trace_api::Provider::SetTracerProvider(api_provider);
 }
 
 std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
@@ -554,7 +536,7 @@ std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
     TracerProviderWrapper* provider) {
 
     // Use the provided provider or fall back to this instance's provider
-    auto target_provider = (provider && provider->provider_) ? provider->provider_ : provider_;
+    auto target_provider = (provider && provider->sdk_->tracer_provider) ? provider->sdk_->tracer_provider : sdk_->tracer_provider;
 
     if (!target_provider) return nullptr;
 
@@ -570,8 +552,9 @@ std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
 }
 
 void TracerProviderWrapper::shutdown() {
-    if (provider_) {
-        provider_->Shutdown();
+    if (sdk_ != nullptr) {
+        sdk_->UnInstall();
+        sdk_.reset();
     }
 }
 
