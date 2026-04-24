@@ -67,7 +67,10 @@ before-all = """
 
   if [ -f "$STAMP" ]; then
     echo "Cache hit for $ARCH — restoring deps"
-    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xf -)
+    # || true: tar exits non-zero when it encounters files already present in
+    # $INSTALLDIR from the base image (autotools, libtool, etc.). Our OTel/curl
+    # files are extracted successfully before those conflicts are hit.
+    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xf -) || true
     ldconfig || true
     exit 0
   fi
