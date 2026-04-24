@@ -35,7 +35,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .cibw-cache/${{ matrix.arch }}
-          key: cibw-otel-deps-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.26.0
+          key: cibw-otel-deps-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.26.0-v3
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1

@@ -118,11 +118,21 @@ before-all = """
   tar -xzf v1.26.0.tar.gz
   cd opentelemetry-cpp-1.26.0
 
+  # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
+  # On Linux, OTel FetchContent-downloads gRPC which downloads its own protobuf as
+  # a shared lib, but the protoc binary can't find libprotoc.so at build time.
+  # Building static avoids that problem and produces a self-contained extension.
+  if command -v brew &> /dev/null; then
+    SHARED_LIBS=ON
+    EXTRA_CMAKE_OPTS="-DCMAKE_INSTALL_RPATH=$INSTALLDIR/lib -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DOTELCPP_VERSIONED_LIBS=ON"
+  else
+    SHARED_LIBS=OFF
+    EXTRA_CMAKE_OPTS=""
+  fi
+
   cmake -B build \
     -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_INSTALL_PREFIX=$INSTALLDIR \
-    -DCMAKE_INSTALL_RPATH="$INSTALLDIR/lib" \
-    -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOTELCPP_PROTO_PATH=/tmp/opentelemetry-proto-1.10.0 \
     -DWITH_OTLP_HTTP=ON \
@@ -133,8 +143,8 @@ before-all = """
     -DWITH_CONFIGURATION=ON \
     -DWITH_YAML_CONFIGURATION=ON \
     -DWITH_YAML=ON \
-    -DOTELCPP_VERSIONED_LIBS=ON \
-    -DBUILD_SHARED_LIBS=ON
+    -DBUILD_SHARED_LIBS=$SHARED_LIBS \
+    $EXTRA_CMAKE_OPTS
 
   cmake --build build -j2
   cmake --install build
