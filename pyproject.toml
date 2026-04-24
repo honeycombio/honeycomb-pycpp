@@ -8,13 +8,30 @@ authors = [
 ]
 name = "honeycomb-pycpp"
 version = "0.1.0"
-description = "Python bindings for OpenTelemetry C++ SDK"
+description = "Honeycomb OpenTelemetry distro which embeds the C++ SDK"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
+dependencies = [
+  "opentelemetry-api ~= 1.12",
+  "opentelemetry-instrumentation == 0.61b0",
+]
 
 [project.urls]
 Homepage = "https://github.com/honeycombio/honeycomb-pycpp"
+
+[project.entry-points.opentelemetry_configurator]
+cpp_configurator = "honeycomb.pycpp.distro:OpenTelemetryConfigurator"
+
+[project.entry-points.opentelemetry_distro]
+cpp_distro = "honeycomb.pycpp.distro:OpenTelemetryDistro"
+
+[tool.setuptools.packages.find]
+namespaces = true
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+"honeycomb.pycpp.distro" = ["embedded/otel.yaml", "py.typed"]
 
 [tool.cibuildwheel]
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]

@@ -8,12 +8,13 @@ from opentelemetry import trace
 from honeycomb.pycpp.distro.patch_api import patch
 import otel_cpp_tracer as otel
 
+_DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "embedded", "otel.yaml")
+
 
 class OpenTelemetryConfigurator():
     def configure(self, **kwargs):
         """Configure the SDK"""
-        # Set the tracer provider
-        trace.set_tracer_provider(otel.TracerProvider(os.getenv("OTEL_SERVICE_NAME", "unknown_service")))
+        trace.set_tracer_provider(otel.TracerProvider(os.getenv("OTEL_CONFIG_FILE", _DEFAULT_CONFIG)))
 
 
 class OpenTelemetryDistro(BaseDistro):

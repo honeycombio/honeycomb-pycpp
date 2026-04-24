@@ -4,7 +4,6 @@
 import os
 import sys
 import subprocess
-from pathlib import Path
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
@@ -74,16 +73,6 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name="honeycomb-pycpp",
-    version="0.1.0",
-    author="Honeycomb Authors",
-    author_email="support@honeycomb.io",
-    description="Python bindings for OpenTelemetry C++ SDK",
-    long_description=open("README.md").read() if os.path.exists("README.md") else "",
-    long_description_content_type="text/markdown",
     ext_modules=[CMakeExtension("otel_cpp_tracer")],
     cmdclass={"build_ext": CMakeBuild},
-    zip_safe=False,
-    python_requires=">=3.10",
-    install_requires=[],
 )
