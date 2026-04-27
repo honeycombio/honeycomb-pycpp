@@ -65,16 +65,6 @@ before-all = """
   fi
   STAMP="$CACHE/.built-curl-8.4.0-protobuf-3.21.12-json-3.11.3-otel-1.26.0"
 
-  if [ -f "$STAMP" ]; then
-    echo "Cache hit for $ARCH — restoring deps"
-    # || true: tar exits non-zero when it encounters files already present in
-    # $INSTALLDIR from the base image (autotools, libtool, etc.). Our OTel/curl
-    # files are extracted successfully before those conflicts are hit.
-    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xf -) || true
-    ldconfig || true
-    exit 0
-  fi
-
   echo "Cache miss for $ARCH — building from source"
 
   # Install build tools and dependencies (check which package manager is available)
