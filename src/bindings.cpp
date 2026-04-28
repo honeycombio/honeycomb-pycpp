@@ -304,9 +304,11 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
              "and exception.stacktrace attributes.")
 
         .def("set_status", [](otel_wrapper::SpanWrapper& self, py::object status_obj, py::object description_override) {
-            // Support both our Status class and Python's opentelemetry.trace.status.Status
+            // Support three call forms matching the Python OTel API:
+            //   span.set_status(otel_cpp_tracer.Status(...))
+            //   span.set_status(opentelemetry.trace.status.Status(...))
+            //   span.set_status(StatusCode.ERROR, "description")
             if (py::isinstance<otel_wrapper::Status>(status_obj)) {
-                // Our Status class
                 auto status = status_obj.cast<otel_wrapper::Status>();
                 if (!description_override.is_none()) {
                     otel_wrapper::Status overridden(status.get_status_code(), description_override.cast<std::string>());
@@ -315,33 +317,43 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
                     self.set_status(status);
                 }
             } else if (py::hasattr(status_obj, "status_code") && py::hasattr(status_obj, "description")) {
-                // Python opentelemetry.trace.status.Status or compatible object
+                // opentelemetry.trace.status.Status or compatible object
                 auto status_code = status_obj.attr("status_code");
                 auto description = status_obj.attr("description");
-
-                // Extract status code value (handle both enum and int)
                 int code_value;
                 if (py::hasattr(status_code, "value")) {
                     code_value = status_code.attr("value").cast<int>();
                 } else {
                     code_value = status_code.cast<int>();
                 }
-
-                // Extract description: prefer override, then status object's description
                 std::string desc_str;
                 if (!description_override.is_none()) {
                     desc_str = description_override.cast<std::string>();
                 } else if (!description.is_none()) {
                     desc_str = description.cast<std::string>();
                 }
-
+                otel_wrapper::Status status(code_value, desc_str);
+                self.set_status(status);
+            } else if (py::isinstance<py::int_>(status_obj) || py::hasattr(status_obj, "value")) {
+                // Bare StatusCode enum: span.set_status(StatusCode.ERROR, "description")
+                int code_value;
+                if (py::hasattr(status_obj, "value")) {
+                    code_value = status_obj.attr("value").cast<int>();
+                } else {
+                    code_value = status_obj.cast<int>();
+                }
+                std::string desc_str;
+                if (!description_override.is_none()) {
+                    desc_str = description_override.cast<std::string>();
+                }
                 otel_wrapper::Status status(code_value, desc_str);
                 self.set_status(status);
             } else {
-                throw py::type_error("set_status expects a Status object with status_code and description attributes");
+                throw py::type_error("set_status expects a Status object or a StatusCode enum value");
             }
         }, py::arg("status"), py::arg("description") = py::none(),
-           "Set the status of the span. Accepts either otel_cpp_tracer.Status or opentelemetry.trace.status.Status. Optional description overrides the status description.")
+           "Set the status of the span. Accepts otel_cpp_tracer.Status, "
+           "opentelemetry.trace.status.Status, or a bare StatusCode enum with an optional description.")
 
         .def("update_name", &otel_wrapper::SpanWrapper::update_name,
              py::arg("name"),

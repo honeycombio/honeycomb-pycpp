@@ -543,6 +543,30 @@ class TestSpanSetStatus:
         span.set_status(Status(StatusCode.ERROR, "db timeout"), description="something happened")
         span.end()
 
+    def test_set_status_statuscode_error_with_description(self, tracer):
+        """span.set_status(StatusCode.ERROR, description) — bare enum, Python OTel API form."""
+        span = tracer.start_span("status")
+        span.set_status(StatusCode.ERROR, "something went wrong")
+        span.end()
+
+    def test_set_status_statuscode_error_no_description(self, tracer):
+        """span.set_status(StatusCode.ERROR) — bare enum without description."""
+        span = tracer.start_span("status")
+        span.set_status(StatusCode.ERROR)
+        span.end()
+
+    def test_set_status_statuscode_ok(self, tracer):
+        """span.set_status(StatusCode.OK) — bare enum OK."""
+        span = tracer.start_span("status")
+        span.set_status(StatusCode.OK)
+        span.end()
+
+    def test_set_status_statuscode_unset(self, tracer):
+        """span.set_status(StatusCode.UNSET) — bare enum UNSET."""
+        span = tracer.start_span("status")
+        span.set_status(StatusCode.UNSET)
+        span.end()
+
     def test_set_status_invalid_raises(self, tracer):
         span = tracer.start_span("status")
         with pytest.raises(Exception):
