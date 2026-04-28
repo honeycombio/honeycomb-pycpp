@@ -47,11 +47,11 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
-          CPP_VERSION: ${{ vars.CPP_VERSION }}
-          CURL_VERSION: ${{ vars.CURL_VERSION }}
-          OTEL_PROTO_VERSION: ${{ vars.OTEL_PROTO_VERSION }}
-          PROTO_VERSION: ${{ vars.PROTO_VERSION }}
-          JSON_VERSION: ${{ vars.JSON_VERSION }}
+          CPP_VERSION: ${{ env.CPP_VERSION }}
+          CURL_VERSION: ${{ env.CURL_VERSION }}
+          OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
+          PROTO_VERSION: ${{ env.PROTO_VERSION }}
+          JSON_VERSION: ${{ env.JSON_VERSION }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
 
       - name: Upload wheels as artifacts
