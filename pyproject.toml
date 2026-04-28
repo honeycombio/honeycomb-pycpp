@@ -40,7 +40,6 @@ build-verbosity = 1
 before-build = """
   pip install -r requirements-dev.txt
 """
-environment = { PIP_ONLY_BINARY="cmake" }
 test-command = "python -c 'import otel_cpp_tracer; print(\"Import successful\")'"
 before-all = """
   set -ex

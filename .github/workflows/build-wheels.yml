@@ -53,6 +53,7 @@ jobs:
           PROTO_VERSION: ${{ env.PROTO_VERSION }}
           JSON_VERSION: ${{ env.JSON_VERSION }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
+          PIP_ONLY_BINARY: cmake
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
