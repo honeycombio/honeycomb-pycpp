@@ -46,7 +46,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .cibw-cache/${{ matrix.platform }}-${{ matrix.arch }}
-          key: cibw-otel-deps-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v3
+          key: cibw-otel-deps-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
@@ -59,6 +59,7 @@ jobs:
           JSON_VERSION: ${{ env.JSON_VERSION }}
           MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
           PIP_ONLY_BINARY: cmake
+          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7

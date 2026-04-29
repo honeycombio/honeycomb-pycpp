@@ -36,7 +36,7 @@ exclude = ["tests*"]
 [tool.cibuildwheel]
 build = ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
 skip = "*-musllinux_*"
-build-verbosity = 1
+build-verbosity = 0
 before-build = """
   pip install -r requirements-dev.txt
 """
@@ -52,24 +52,6 @@ before-all = """
     INSTALLDIR="$(brew --prefix)"
   fi
 
-  # Per-arch cache: /project is the workspace mount inside Linux containers;
-  # $GITHUB_WORKSPACE is used on macOS where the script runs on the host directly.
-  if [ -d "/project" ]; then
-    CACHE="/project/.cibw-cache/$ARCH"
-  elif [ -n "$GITHUB_WORKSPACE" ]; then
-    CACHE="$GITHUB_WORKSPACE/.cibw-cache/$ARCH"
-  else
-    CACHE="$HOME/.cibw-cache/$ARCH"
-  fi
-  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION"
-
-  if [ -f "$STAMP" ]; then
-    echo "Cache hit for $ARCH — restoring deps"
-    (cd "$CACHE/tmp" && tar -cf - .) | (cd "/tmp" && tar -xf -) || true
-    ldconfig || true
-  fi
-
-  echo "Cache miss for $ARCH — building from source"
 
   # Install build tools and dependencies (check which package manager is available)
   if command -v yum &> /dev/null; then
@@ -90,56 +72,68 @@ before-all = """
     CURL_SSL_OPTS="--with-openssl=$(brew --prefix openssl)"
   fi
 
-  # Build and install a newer curl (required for OpenTelemetry HTTP exporter)
-  if [ ! -d /tmp/curl-$CURL_VERSION ]; then
-    cd /tmp
-    wget -q https://curl.se/download/curl-$CURL_VERSION.tar.gz
-    tar -xzf curl-$CURL_VERSION.tar.gz
+  # Per-arch cache: /project is the workspace mount inside Linux containers;
+  # $GITHUB_WORKSPACE is used on macOS where the script runs on the host directly.
+  if [ -d "/cibw-cache" ]; then
+    CACHE="/cibw-cache/$ARCH"
+  elif [ -n "$GITHUB_WORKSPACE" ]; then
+    CACHE="$GITHUB_WORKSPACE/.cibw-cache/$ARCH"
+  else
+    CACHE="$HOME/.cibw-cache/$ARCH"
   fi
+  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION"
+
+  if [ -f "$STAMP" ]; then
+    echo "Cache hit for $ARCH — restoring deps"
+    # || true: tar exits non-zero when it encounters files already present in
+    # $INSTALLDIR from the base image (autotools, libtool, etc.). Our OTel/curl
+    # files are extracted successfully before those conflicts are hit.
+    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xmf -) || true
+    ldconfig || true
+    exit 0
+  fi
+  echo "Cache miss for $ARCH — building from source"
+
+  # Build and install a newer curl (required for OpenTelemetry HTTP exporter)
+  cd /tmp
+  wget -q https://curl.se/download/curl-$CURL_VERSION.tar.gz
+  tar -xzf curl-$CURL_VERSION.tar.gz
   cd /tmp/curl-$CURL_VERSION
   ./configure --prefix=$INSTALLDIR $CURL_SSL_OPTS
   make -j2
   make install
-  ldconfig || true
+  command -v ldconfig &>/dev/null && ldconfig || true
 
   if ! command -v brew &> /dev/null; then
     # Build and install a newer protobuf with CMake (required for OpenTelemetry)
     # on darwin, the installation of grpc automatically pulls in a newer protobuf
-    if [ ! -d /tmp/protobuf-$PROTO_VERSION ]; then
-      cd /tmp
-      wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-$PROTO_VERSION.tar.gz
-      tar -xzf protobuf-cpp-$PROTO_VERSION.tar.gz
-    fi
+    cd /tmp
+    wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-$PROTO_VERSION.tar.gz
+    tar -xzf protobuf-cpp-$PROTO_VERSION.tar.gz
     cd /tmp/protobuf-$PROTO_VERSION
     cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
     cmake --build build -j2
     cmake --install build
-    ldconfig || true
+    command -v ldconfig &>/dev/null && ldconfig || true
   fi
 
   # Install nlohmann-json
-  if [ ! -d /tmp/json ]; then
-    cd /tmp
-    wget -q https://github.com/nlohmann/json/releases/download/v$JSON_VERSION/json.tar.xz
-    tar -xf json.tar.xz
-  fi
+  cd /tmp
+  wget -q https://github.com/nlohmann/json/releases/download/v$JSON_VERSION/json.tar.xz
+  tar -xf json.tar.xz
   cd /tmp/json
   cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DJSON_BuildTests=OFF
   cmake --build build -j2
   cmake --install build
 
   # Install OpenTelemetry Proto v$OTEL_PROTO_VERSION (includes semantic conventions)
-  if [ ! -d /tmp/opentelemetry-proto-$OTEL_PROTO_VERSION ]; then
-    cd /tmp
-    wget -q https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v$OTEL_PROTO_VERSION.tar.gz
-    tar -xzf v$OTEL_PROTO_VERSION.tar.gz
-  fi
+  cd /tmp
+  wget -q https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/v$OTEL_PROTO_VERSION.tar.gz
+  tar -xzf v$OTEL_PROTO_VERSION.tar.gz
 
-  if [ ! -d /tmp/opentelemetry-cpp-$CPP_VERSION ]; then
-    cd /tmp
-    wget -q https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v$CPP_VERSION.tar.gz
-    tar -xzf v$CPP_VERSION.tar.gz
-  fi
+  cd /tmp
+  wget -q https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v$CPP_VERSION.tar.gz
+  tar -xzf v$CPP_VERSION.tar.gz
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
   # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
@@ -174,12 +168,8 @@ before-all = """
   cmake --install build
 
   # Save compiled artifacts to cache
-  mkdir -p "$CACHE/tmp"
-  for dep in opentelemetry-cpp-$CPP_VERSION json opentelemetry-proto-$OTEL_PROTO_VERSION protobuf-$PROTO_VERSION curl-$CURL_VERSION; do
-    if [ -d /tmp/$dep ]; then
-      mv /tmp/$dep "$CACHE/tmp/$dep"
-    fi
-  done
+  mkdir -p "$CACHE/usr"
+  (cd "$INSTALLDIR" && tar -cf - .) | (cd "$CACHE/usr" && tar -xf -)
   touch "$STAMP"
 
   # Clean up source tarballs
