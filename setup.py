@@ -73,6 +73,6 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    ext_modules=[CMakeExtension("otel_cpp_tracer")],
+    ext_modules=[CMakeExtension("honeycomb_pycpp")],
     cmdclass={"build_ext": CMakeBuild},
 )

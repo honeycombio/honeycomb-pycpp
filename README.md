@@ -40,7 +40,7 @@ The distro registers itself automatically via entry points — no code changes r
 ### Programmatic use
 
 ```python
-import otel_cpp_tracer as otel
+import honeycomb_pycpp as otel
 
 # Initialize from config file (or uses embedded default)
 provider = otel.TracerProvider("path/to/otel.yaml")

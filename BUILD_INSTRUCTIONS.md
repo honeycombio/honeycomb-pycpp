@@ -190,7 +190,7 @@ pip install -e . --force-reinstall
 export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
 
 # Or fix install names (permanent fix)
-install_name_tool -add_rpath /usr/local/lib otel_cpp_tracer.*.so
+install_name_tool -add_rpath /usr/local/lib honeycomb_pycpp.*.so
 ```
 
 ### Library linking errors (Linux)

@@ -12,7 +12,6 @@ the implementation simple.
 
 import functools
 import threading
-from typing import Optional
 
 try:
     from opentelemetry import trace
@@ -22,7 +21,7 @@ except ImportError:
     OTEL_AVAILABLE = False
     print("Warning: opentelemetry-api not installed. Monkey patching will have no effect.")
 
-import otel_cpp_tracer
+import honeycomb_pycpp
 
 
 # Store original implementations
@@ -42,7 +41,7 @@ def _get_current_span_from_cpp(context=None):
     # If a specific context is provided, we'd need to extract from it
     # For now, we always get from current C++ runtime context
     try:
-        cpp_context = otel_cpp_tracer.Context.get_current()
+        cpp_context = honeycomb_pycpp.Context.get_current()
         span = cpp_context.get_span()
         if span and span.is_recording():
             return span
@@ -91,7 +90,7 @@ def _use_span_cpp(span, end_on_exit=False, record_exception=True, set_status_on_
                         trace_flags = span_ctx.trace_flags
 
                         # Create C++ context with this span context
-                        ctx = otel_cpp_tracer.Context.create_with_span_context(
+                        ctx = honeycomb_pycpp.Context.create_with_span_context(
                             trace_id_hex,
                             span_id_hex,
                             trace_flags,
@@ -110,7 +109,7 @@ def _use_span_cpp(span, end_on_exit=False, record_exception=True, set_status_on_
         def __exit__(self, exc_type, exc_val, exc_tb):
             # Detach context
             if self.token:
-                otel_cpp_tracer.Context.detach(self.token)
+                honeycomb_pycpp.Context.detach(self.token)
 
             # End span if requested
             if self.end_on_exit and hasattr(self.span, 'end'):
@@ -120,8 +119,8 @@ def _use_span_cpp(span, end_on_exit=False, record_exception=True, set_status_on_
                         # Try C++ status first
                         try:
                             self.span.set_status(
-                                otel_cpp_tracer.Status(
-                                    otel_cpp_tracer.StatusCode.ERROR,
+                                honeycomb_pycpp.Status(
+                                    honeycomb_pycpp.StatusCode.ERROR,
                                     f"{exc_type.__name__}: {exc_val}"
                                 )
                             )
@@ -150,7 +149,7 @@ def _wrap_tracer_start_span(original_method):
         # If no explicit context/parent provided, inject current C++ context
         if 'context' not in kwargs or kwargs['context'] is None:
             try:
-                cpp_context = otel_cpp_tracer.Context.get_current()
+                cpp_context = honeycomb_pycpp.Context.get_current()
                 # Store C++ context in a way the original method might use
                 # This is a best-effort approach for standard Python tracers
                 kwargs['context'] = otel_context.get_current()
@@ -202,7 +201,7 @@ def _wrap_tracer_start_as_current_span(original_method):
                 # Detach from C++ context
                 if self.cpp_token:
                     try:
-                        otel_cpp_tracer.Context.detach(self.cpp_token)
+                        honeycomb_pycpp.Context.detach(self.cpp_token)
                     except:
                         pass
 

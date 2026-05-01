@@ -118,7 +118,7 @@ public:
 };
 }  // namespace
 
-PYBIND11_MODULE(otel_cpp_tracer, m) {
+PYBIND11_MODULE(honeycomb_pycpp, m) {
     m.doc() = "Python bindings for OpenTelemetry C++ SDK tracing";
 
     // SpanStatusCode enum
@@ -305,7 +305,7 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
 
         .def("set_status", [](otel_wrapper::SpanWrapper& self, py::object status_obj, py::object description_override) {
             // Support three call forms matching the Python OTel API:
-            //   span.set_status(otel_cpp_tracer.Status(...))
+            //   span.set_status(honeycomb_pycpp.Status(...))
             //   span.set_status(opentelemetry.trace.status.Status(...))
             //   span.set_status(StatusCode.ERROR, "description")
             if (py::isinstance<otel_wrapper::Status>(status_obj)) {
@@ -352,7 +352,7 @@ PYBIND11_MODULE(otel_cpp_tracer, m) {
                 throw py::type_error("set_status expects a Status object or a StatusCode enum value");
             }
         }, py::arg("status"), py::arg("description") = py::none(),
-           "Set the status of the span. Accepts otel_cpp_tracer.Status, "
+           "Set the status of the span. Accepts honeycomb_pycpp.Status, "
            "opentelemetry.trace.status.Status, or a bare StatusCode enum with an optional description.")
 
         .def("update_name", &otel_wrapper::SpanWrapper::update_name,

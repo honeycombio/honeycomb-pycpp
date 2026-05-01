@@ -6,7 +6,7 @@ import os
 from opentelemetry.instrumentation.distro import BaseDistro
 from opentelemetry import trace
 from honeycomb.pycpp.distro.patch_api import patch
-import otel_cpp_tracer as otel
+import honeycomb_pycpp as otel
 
 _DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "embedded", "otel.yaml")
 

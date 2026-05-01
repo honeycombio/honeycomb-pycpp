@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Comprehensive tests for the otel_cpp_tracer API surface, mirroring the
+Comprehensive tests for the honeycomb_pycpp API surface, mirroring the
 opentelemetry-api Python spec at:
 https://opentelemetry-python.readthedocs.io/en/latest/api/trace.html
 
@@ -11,7 +11,7 @@ One test per method / per optional parameter where applicable.
 
 import time
 import pytest
-import otel_cpp_tracer
+import honeycomb_pycpp
 from opentelemetry.trace import SpanKind, Status, StatusCode
 
 
@@ -21,7 +21,7 @@ from opentelemetry.trace import SpanKind, Status, StatusCode
 
 @pytest.fixture(scope="module")
 def provider():
-    p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
+    p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
     yield p
     p.shutdown()
 
@@ -38,12 +38,12 @@ def tracer(provider):
 class TestTracerProvider:
     def test_init_service_name_only(self):
         """TracerProvider can be created with only a service name."""
-        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()
 
     def test_init_with_console_exporter(self):
         """TracerProvider accepts 'console' as exporter_type."""
-        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()
 
     def test_get_tracer_name_only(self, provider):
@@ -78,7 +78,7 @@ class TestTracerProvider:
 
     def test_shutdown(self):
         """TracerProvider.shutdown() completes without error."""
-        p = otel_cpp_tracer.TracerProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
         p.shutdown()  # should not raise
 
 
@@ -88,18 +88,18 @@ class TestTracerProvider:
 
 class TestStatusCode:
     def test_unset(self):
-        assert otel_cpp_tracer.StatusCode.UNSET is not None
+        assert honeycomb_pycpp.StatusCode.UNSET is not None
 
     def test_ok(self):
-        assert otel_cpp_tracer.StatusCode.OK is not None
+        assert honeycomb_pycpp.StatusCode.OK is not None
 
     def test_error(self):
-        assert otel_cpp_tracer.StatusCode.ERROR is not None
+        assert honeycomb_pycpp.StatusCode.ERROR is not None
 
     def test_values_are_distinct(self):
-        codes = {otel_cpp_tracer.StatusCode.UNSET,
-                 otel_cpp_tracer.StatusCode.OK,
-                 otel_cpp_tracer.StatusCode.ERROR}
+        codes = {honeycomb_pycpp.StatusCode.UNSET,
+                 honeycomb_pycpp.StatusCode.OK,
+                 honeycomb_pycpp.StatusCode.ERROR}
         assert len(codes) == 3
 
 
@@ -109,27 +109,27 @@ class TestStatusCode:
 
 class TestSpanKind:
     def test_internal(self):
-        assert otel_cpp_tracer.SpanKind.INTERNAL is not None
+        assert honeycomb_pycpp.SpanKind.INTERNAL is not None
 
     def test_server(self):
-        assert otel_cpp_tracer.SpanKind.SERVER is not None
+        assert honeycomb_pycpp.SpanKind.SERVER is not None
 
     def test_client(self):
-        assert otel_cpp_tracer.SpanKind.CLIENT is not None
+        assert honeycomb_pycpp.SpanKind.CLIENT is not None
 
     def test_producer(self):
-        assert otel_cpp_tracer.SpanKind.PRODUCER is not None
+        assert honeycomb_pycpp.SpanKind.PRODUCER is not None
 
     def test_consumer(self):
-        assert otel_cpp_tracer.SpanKind.CONSUMER is not None
+        assert honeycomb_pycpp.SpanKind.CONSUMER is not None
 
     def test_values_are_distinct(self):
         kinds = {
-            otel_cpp_tracer.SpanKind.INTERNAL,
-            otel_cpp_tracer.SpanKind.SERVER,
-            otel_cpp_tracer.SpanKind.CLIENT,
-            otel_cpp_tracer.SpanKind.PRODUCER,
-            otel_cpp_tracer.SpanKind.CONSUMER,
+            honeycomb_pycpp.SpanKind.INTERNAL,
+            honeycomb_pycpp.SpanKind.SERVER,
+            honeycomb_pycpp.SpanKind.CLIENT,
+            honeycomb_pycpp.SpanKind.PRODUCER,
+            honeycomb_pycpp.SpanKind.CONSUMER,
         }
         assert len(kinds) == 5
 
@@ -140,35 +140,35 @@ class TestSpanKind:
 
 class TestStatus:
     def test_status_unset(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.UNSET)
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.UNSET)
         assert s.is_unset
         assert not s.is_ok
 
     def test_status_ok(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.OK)
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.OK)
         assert s.is_ok
         assert not s.is_unset
 
     def test_status_error_no_description(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.ERROR)
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.ERROR)
         assert not s.is_ok
         assert not s.is_unset
 
     def test_status_error_with_description(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.ERROR, "something went wrong")
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.ERROR, "something went wrong")
         assert s.description == "something went wrong"
 
     def test_status_ok_description_is_cleared(self):
         """Description is only meaningful for ERROR; others get it cleared."""
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.OK, "ignored")
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.OK, "ignored")
         assert s.description == ""
 
     def test_status_code_property(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.ERROR, "err")
-        assert s.status_code == otel_cpp_tracer.StatusCode.ERROR.value
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.ERROR, "err")
+        assert s.status_code == honeycomb_pycpp.StatusCode.ERROR.value
 
     def test_status_description_property_default(self):
-        s = otel_cpp_tracer.Status(otel_cpp_tracer.StatusCode.ERROR)
+        s = honeycomb_pycpp.Status(honeycomb_pycpp.StatusCode.ERROR)
         assert s.description == ""
 
 
@@ -212,27 +212,27 @@ class TestTracerStartSpan:
 
     def test_with_kind_internal(self, tracer):
         span = tracer.start_span("kind-internal", kind=SpanKind.INTERNAL)
-        assert span.kind == otel_cpp_tracer.SpanKind.INTERNAL.value
+        assert span.kind == honeycomb_pycpp.SpanKind.INTERNAL.value
         span.end()
 
     def test_with_kind_server(self, tracer):
         span = tracer.start_span("kind-server", kind=SpanKind.SERVER)
-        assert span.kind == otel_cpp_tracer.SpanKind.SERVER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.SERVER.value
         span.end()
 
     def test_with_kind_client(self, tracer):
         span = tracer.start_span("kind-client", kind=SpanKind.CLIENT)
-        assert span.kind == otel_cpp_tracer.SpanKind.CLIENT.value
+        assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
         span.end()
 
     def test_with_kind_producer(self, tracer):
         span = tracer.start_span("kind-producer", kind=SpanKind.PRODUCER)
-        assert span.kind == otel_cpp_tracer.SpanKind.PRODUCER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.PRODUCER.value
         span.end()
 
     def test_with_kind_consumer(self, tracer):
         span = tracer.start_span("kind-consumer", kind=SpanKind.CONSUMER)
-        assert span.kind == otel_cpp_tracer.SpanKind.CONSUMER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.CONSUMER.value
         span.end()
 
     def test_with_start_time(self, tracer):
@@ -254,14 +254,14 @@ class TestTracerStartSpan:
             kind=SpanKind.CLIENT,
             start_time=ts_ns,
         )
-        assert span.kind == otel_cpp_tracer.SpanKind.CLIENT.value
+        assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
         span.end()
         parent.end()
 
     def test_does_not_become_current(self, tracer):
         """start_span does NOT set the span as current (use start_as_current_span for that)."""
         span = tracer.start_span("not-current")
-        ctx = otel_cpp_tracer.Context.get_current()
+        ctx = honeycomb_pycpp.Context.get_current()
         active = ctx.get_span()
         # Active span context should not be the one we just started
         if active is not None:
@@ -304,27 +304,27 @@ class TestTracerStartAsCurrentSpan:
 
     def test_with_kind_server(self, tracer):
         span = tracer.start_as_current_span("current-server", kind=SpanKind.SERVER)
-        assert span.kind == otel_cpp_tracer.SpanKind.SERVER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.SERVER.value
         span.end()
 
     def test_with_kind_client(self, tracer):
         span = tracer.start_as_current_span("current-client", kind=SpanKind.CLIENT)
-        assert span.kind == otel_cpp_tracer.SpanKind.CLIENT.value
+        assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
         span.end()
 
     def test_with_kind_producer(self, tracer):
         span = tracer.start_as_current_span("current-producer", kind=SpanKind.PRODUCER)
-        assert span.kind == otel_cpp_tracer.SpanKind.PRODUCER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.PRODUCER.value
         span.end()
 
     def test_with_kind_consumer(self, tracer):
         span = tracer.start_as_current_span("current-consumer", kind=SpanKind.CONSUMER)
-        assert span.kind == otel_cpp_tracer.SpanKind.CONSUMER.value
+        assert span.kind == honeycomb_pycpp.SpanKind.CONSUMER.value
         span.end()
 
     def test_with_kind_internal(self, tracer):
         span = tracer.start_as_current_span("current-internal", kind=SpanKind.INTERNAL)
-        assert span.kind == otel_cpp_tracer.SpanKind.INTERNAL.value
+        assert span.kind == honeycomb_pycpp.SpanKind.INTERNAL.value
         span.end()
 
     def test_with_start_time(self, tracer):
@@ -336,7 +336,7 @@ class TestTracerStartAsCurrentSpan:
     def test_becomes_current_span(self, tracer):
         """start_as_current_span makes the span active in the runtime context."""
         span = tracer.start_as_current_span("should-be-current")
-        ctx = otel_cpp_tracer.Context.get_current()
+        ctx = honeycomb_pycpp.Context.get_current()
         active = ctx.get_span()
         assert active is not None
         assert active.get_span_context().span_id == span.get_span_context().span_id
@@ -685,7 +685,7 @@ class TestSpanIdentity:
 
     def test_kind_default_is_internal(self, tracer):
         span = tracer.start_span("kind")
-        assert span.kind == otel_cpp_tracer.SpanKind.INTERNAL.value
+        assert span.kind == honeycomb_pycpp.SpanKind.INTERNAL.value
         span.end()
 
     def test_unique_trace_ids_across_spans(self, tracer):
@@ -791,7 +791,7 @@ class TestSpanContextManager:
     def test_start_as_current_span_context_manager(self, tracer):
         with tracer.start_as_current_span("cm-current") as span:
             assert span.is_recording()
-            ctx = otel_cpp_tracer.Context.get_current()
+            ctx = honeycomb_pycpp.Context.get_current()
             active = ctx.get_span()
             assert active is not None
             assert active.get_span_context().span_id == span.get_span_context().span_id
@@ -803,15 +803,15 @@ class TestSpanContextManager:
 
 class TestContext:
     def test_default_constructor(self):
-        ctx = otel_cpp_tracer.Context()
+        ctx = honeycomb_pycpp.Context()
         assert ctx is not None
 
     def test_get_current_returns_context(self):
-        ctx = otel_cpp_tracer.Context.get_current()
+        ctx = honeycomb_pycpp.Context.get_current()
         assert ctx is not None
 
     def test_get_span_returns_none_with_no_active_span(self):
-        ctx = otel_cpp_tracer.Context()
+        ctx = honeycomb_pycpp.Context()
         # A freshly created context has no span set in it
         # (may or may not have an active span depending on test order)
         result = ctx.get_span()
@@ -819,16 +819,16 @@ class TestContext:
         assert result is None or result is not None
 
     def test_attach_and_detach(self):
-        ctx = otel_cpp_tracer.Context.get_current()
+        ctx = honeycomb_pycpp.Context.get_current()
         token = ctx.attach()
         assert token is not None
-        otel_cpp_tracer.Context.detach(token)
+        honeycomb_pycpp.Context.detach(token)
 
     def test_create_with_span_context_defaults(self):
         """create_with_span_context with only required args uses default flags/is_remote."""
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
-        ctx = otel_cpp_tracer.Context.create_with_span_context(trace_id, span_id)
+        ctx = honeycomb_pycpp.Context.create_with_span_context(trace_id, span_id)
         assert ctx is not None
         span = ctx.get_span()
         assert span is not None
@@ -836,7 +836,7 @@ class TestContext:
     def test_create_with_span_context_explicit_trace_flags(self):
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
-        ctx = otel_cpp_tracer.Context.create_with_span_context(
+        ctx = honeycomb_pycpp.Context.create_with_span_context(
             trace_id, span_id, trace_flags=1
         )
         sc = ctx.get_span().get_span_context()
@@ -845,7 +845,7 @@ class TestContext:
     def test_create_with_span_context_is_remote_true(self):
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
-        ctx = otel_cpp_tracer.Context.create_with_span_context(
+        ctx = honeycomb_pycpp.Context.create_with_span_context(
             trace_id, span_id, is_remote=True
         )
         sc = ctx.get_span().get_span_context()
@@ -854,7 +854,7 @@ class TestContext:
     def test_create_with_span_context_is_remote_false(self):
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
-        ctx = otel_cpp_tracer.Context.create_with_span_context(
+        ctx = honeycomb_pycpp.Context.create_with_span_context(
             trace_id, span_id, is_remote=False
         )
         sc = ctx.get_span().get_span_context()
@@ -863,7 +863,7 @@ class TestContext:
     def test_create_with_span_context_round_trips_ids(self):
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
-        ctx = otel_cpp_tracer.Context.create_with_span_context(trace_id, span_id)
+        ctx = honeycomb_pycpp.Context.create_with_span_context(trace_id, span_id)
         sc = ctx.get_span().get_span_context()
         assert format(sc.trace_id, "032x") == trace_id
         assert format(sc.span_id, "016x") == span_id
@@ -871,7 +871,7 @@ class TestContext:
     def test_span_active_via_context(self, tracer):
         """A span started as current is retrievable from the runtime context."""
         span = tracer.start_as_current_span("ctx-active")
-        ctx = otel_cpp_tracer.Context.get_current()
+        ctx = honeycomb_pycpp.Context.get_current()
         active = ctx.get_span()
         assert active is not None
         assert active.get_span_context().span_id == span.get_span_context().span_id

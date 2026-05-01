@@ -46,7 +46,7 @@ before-build = """
   pip install -r requirements-dev.txt
 """
 environment-pass = ["ARCH", "CPP_VERSION", "CURL_VERSION", "OTEL_PROTO_VERSION", "PROTO_VERSION", "JSON_VERSION", "MACOSX_DEPLOYMENT_TARGET", "PIP_ONLY_BINARY"]
-test-command = "python -c 'import otel_cpp_tracer; print(\"Import successful\")'"
+test-command = "python -c 'import honeycomb_pycpp; print(\"Import successful\")'"
 before-all = """
   set -ex
 
