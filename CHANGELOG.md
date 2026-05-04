@@ -4,12 +4,13 @@
 
 ### New
 
-- feature: add meter provider support. (#) | @codeboten
-- feature: add configured property to TracerProvider to determine if it can be used or not. (#) | @codeboten
+- feature: add meter provider support. (#14) | @codeboten
+- feature: add configured property to TracerProvider to determine if it can be used or not. (#14) | @codeboten
+
 
 ### Fix
 
-- bugfix: clean up output when instrumenting is done. (#) | @codeboten
+- bugfix: clean up output when instrumenting is done. (#14) | @codeboten
 
 ## [0.1.2a1] - 2026-05-01
 
