@@ -515,7 +515,7 @@ TracerProviderWrapper::TracerProviderWrapper(const std::string& path) {
     sdk_ = opentelemetry::sdk::configuration::ConfiguredSdk::Create(registry, model);
     if (!sdk_) throw std::runtime_error("Unsupported configuration: " + path);
 
-    if (sdk_ != nullptr)
+    if (sdk_ != nullptr && model->tracer_provider)
     {
         sdk_->Install();
         // Set as global provider

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(honeycomb_pycpp VERSION 0.1.2 LANGUAGES CXX)
+project(honeycomb_pycpp VERSION 0.1.3 LANGUAGES CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -37,6 +37,7 @@ include_directories(
 # Source files
 set(SOURCE_FILES
     src/tracer_wrapper.cpp
+    src/meter_wrapper.cpp
     src/bindings.cpp
 )
 
@@ -57,6 +58,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::otlp_grpc_exporter_builder
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::ostream_span_exporter_builder
+    opentelemetry-cpp::metrics
+    opentelemetry-cpp::ostream_metrics_exporter
+    opentelemetry-cpp::ostream_metrics_exporter_builder
+    opentelemetry-cpp::otlp_http_metric_exporter
+    opentelemetry-cpp::otlp_http_metric_exporter_builder
+    opentelemetry-cpp::otlp_grpc_metrics_exporter
+    opentelemetry-cpp::otlp_grpc_metric_exporter_builder
     opentelemetry-cpp::resources
     opentelemetry-cpp::version
     CURL::libcurl

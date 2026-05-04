@@ -3,6 +3,8 @@
 #include <pybind11/functional.h>
 
 #include "tracer_wrapper.h"
+#include "meter_wrapper.h"
+#include "py_attribute_iterable.h"
 
 namespace py = pybind11;
 
@@ -51,71 +53,6 @@ void set_span_attribute(otel_wrapper::SpanWrapper& span,
     }
 }
 
-// Wraps a Python dict as a KeyValueIterable, lazily converting values during ForEachKeyValue.
-// Sequence values (list of str/int/float/bool) are converted into temporary stack-allocated
-// arrays that live for the duration of each synchronous callback invocation.
-class PyAttributeIterable final : public opentelemetry::common::KeyValueIterable {
-    py::dict dict_;
-public:
-    explicit PyAttributeIterable(py::dict d) : dict_(std::move(d)) {}
-
-    size_t size() const noexcept override { return dict_.size(); }
-
-    bool ForEachKeyValue(opentelemetry::nostd::function_ref<
-                             bool(opentelemetry::nostd::string_view,
-                                  opentelemetry::common::AttributeValue)>
-                             callback) const noexcept override {
-        namespace nostd = opentelemetry::nostd;
-        for (auto item : dict_) {
-            try {
-                std::string key  = item.first.cast<std::string>();
-                py::object  val  = py::reinterpret_borrow<py::object>(item.second);
-                bool cont = true;
-                if (py::isinstance<py::bool_>(val)) {
-                    cont = callback(key, val.cast<bool>());
-                } else if (py::isinstance<py::int_>(val)) {
-                    cont = callback(key, val.cast<int64_t>());
-                } else if (py::isinstance<py::float_>(val)) {
-                    cont = callback(key, val.cast<double>());
-                } else if (py::isinstance<py::str>(val)) {
-                    std::string s = val.cast<std::string>();
-                    cont = callback(key, nostd::string_view(s));
-                } else if (py::isinstance<py::sequence>(val)) {
-                    auto seq = val.cast<py::sequence>();
-                    if (seq.size() == 0) continue;
-                    py::object first = seq[0];
-                    if (py::isinstance<py::bool_>(first)) {
-                        auto arr = std::make_unique<bool[]>(seq.size());
-                        for (size_t i = 0; i < seq.size(); ++i)
-                            arr[i] = seq[i].cast<bool>();
-                        cont = callback(key, nostd::span<const bool>(arr.get(), seq.size()));
-                    } else if (py::isinstance<py::int_>(first)) {
-                        std::vector<int64_t> v;
-                        v.reserve(seq.size());
-                        for (auto el : seq) v.push_back(el.cast<int64_t>());
-                        cont = callback(key, nostd::span<const int64_t>(v.data(), v.size()));
-                    } else if (py::isinstance<py::float_>(first)) {
-                        std::vector<double> v;
-                        v.reserve(seq.size());
-                        for (auto el : seq) v.push_back(el.cast<double>());
-                        cont = callback(key, nostd::span<const double>(v.data(), v.size()));
-                    } else if (py::isinstance<py::str>(first)) {
-                        std::vector<std::string> strs;
-                        strs.reserve(seq.size());
-                        for (auto el : seq) strs.push_back(el.cast<std::string>());
-                        std::vector<nostd::string_view> views;
-                        views.reserve(strs.size());
-                        for (const auto& s : strs) views.push_back(s);
-                        cont = callback(key, nostd::span<const nostd::string_view>(
-                                                 views.data(), views.size()));
-                    }
-                }
-                if (!cont) return false;
-            } catch (...) {}
-        }
-        return true;
-    }
-};
 }  // namespace
 
 PYBIND11_MODULE(honeycomb_pycpp, m) {
@@ -535,5 +472,222 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
              "Get a tracer with the given instrumenting_module_name, optional instrumenting_library_version, schema URL, attributes, and provider")
 
         .def("shutdown", &otel_wrapper::TracerProviderWrapper::shutdown,
-             "Shutdown the tracer provider");
+             "Shutdown the tracer provider")
+
+        .def_property_readonly("configured", &otel_wrapper::TracerProviderWrapper::is_configured,
+             "True if a tracer provider was built from the config file.");
+
+    // -----------------------------------------------------------------------
+    // Metrics API
+    // -----------------------------------------------------------------------
+
+    py::class_<otel_wrapper::ObservationWrapper>(m, "Observation")
+        .def(py::init<double>(),
+             py::arg("value"),
+             "Create an Observation with a numeric value for use in observable callbacks.")
+        .def_property_readonly("value", &otel_wrapper::ObservationWrapper::get_value,
+                               "The observation value.");
+
+    py::class_<otel_wrapper::CounterWrapper,
+               std::shared_ptr<otel_wrapper::CounterWrapper>>(m, "Counter")
+        .def("add",
+             [](otel_wrapper::CounterWrapper& self, double amount, py::object attributes) {
+                 if (!attributes.is_none()) {
+                     PyAttributeIterable attrs(attributes.cast<py::dict>());
+                     self.add(amount, &attrs);
+                 } else {
+                     self.add(amount);
+                 }
+             },
+             py::arg("amount"),
+             py::arg("attributes") = py::none(),
+             "Increment the counter by amount. amount must be non-negative.");
+
+    py::class_<otel_wrapper::UpDownCounterWrapper,
+               std::shared_ptr<otel_wrapper::UpDownCounterWrapper>>(m, "UpDownCounter")
+        .def("add",
+             [](otel_wrapper::UpDownCounterWrapper& self, double amount, py::object attributes) {
+                 if (!attributes.is_none()) {
+                     PyAttributeIterable attrs(attributes.cast<py::dict>());
+                     self.add(amount, &attrs);
+                 } else {
+                     self.add(amount);
+                 }
+             },
+             py::arg("amount"),
+             py::arg("attributes") = py::none(),
+             "Add amount to the up-down counter. May be positive, negative, or zero.");
+
+    py::class_<otel_wrapper::HistogramWrapper,
+               std::shared_ptr<otel_wrapper::HistogramWrapper>>(m, "Histogram")
+        .def("record",
+             [](otel_wrapper::HistogramWrapper& self, double amount, py::object attributes) {
+                 if (!attributes.is_none()) {
+                     PyAttributeIterable attrs(attributes.cast<py::dict>());
+                     self.record(amount, &attrs);
+                 } else {
+                     self.record(amount);
+                 }
+             },
+             py::arg("amount"),
+             py::arg("attributes") = py::none(),
+             "Record a measurement in the histogram.");
+
+    py::class_<otel_wrapper::GaugeWrapper,
+               std::shared_ptr<otel_wrapper::GaugeWrapper>>(m, "Gauge")
+        .def("set",
+             [](otel_wrapper::GaugeWrapper& self, double amount, py::object attributes) {
+                 if (!attributes.is_none()) {
+                     PyAttributeIterable attrs(attributes.cast<py::dict>());
+                     self.set(amount, &attrs);
+                 } else {
+                     self.set(amount);
+                 }
+             },
+             py::arg("amount"),
+             py::arg("attributes") = py::none(),
+             "Set the gauge to amount. On ABI v1 this is a no-op.");
+
+    py::class_<otel_wrapper::ObservableInstrumentWrapper,
+               std::shared_ptr<otel_wrapper::ObservableInstrumentWrapper>>(
+        m, "ObservableInstrument");
+
+    py::class_<otel_wrapper::MeterWrapper,
+               std::shared_ptr<otel_wrapper::MeterWrapper>>(m, "Meter")
+        .def("create_counter",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object unit, py::object description) {
+                 return self.create_counter(
+                     name,
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create a monotonically increasing double counter.")
+
+        .def("create_up_down_counter",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object unit, py::object description) {
+                 return self.create_up_down_counter(
+                     name,
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create a double up-down counter.")
+
+        .def("create_histogram",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object unit, py::object description,
+                py::object explicit_bucket_boundaries_advisory) {
+                 // explicit_bucket_boundaries_advisory is accepted for API compatibility
+                 // but not forwarded; bucket boundaries are configured via SDK views.
+                 (void)explicit_bucket_boundaries_advisory;
+                 return self.create_histogram(
+                     name,
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             py::arg("explicit_bucket_boundaries_advisory") = py::none(),
+             "Create a double histogram.")
+
+        .def("create_gauge",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object unit, py::object description) {
+                 return self.create_gauge(
+                     name,
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create a double gauge. Returns a no-op wrapper on ABI v1.")
+
+        .def("create_observable_counter",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object callbacks, py::object unit, py::object description) {
+                 std::vector<py::object> cbs;
+                 if (!callbacks.is_none()) {
+                     for (auto cb : callbacks.cast<py::list>())
+                         cbs.push_back(py::reinterpret_borrow<py::object>(cb));
+                 }
+                 return self.create_observable_counter(
+                     name, std::move(cbs),
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("callbacks") = py::none(),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create an observable (asynchronous) counter.")
+
+        .def("create_observable_up_down_counter",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object callbacks, py::object unit, py::object description) {
+                 std::vector<py::object> cbs;
+                 if (!callbacks.is_none()) {
+                     for (auto cb : callbacks.cast<py::list>())
+                         cbs.push_back(py::reinterpret_borrow<py::object>(cb));
+                 }
+                 return self.create_observable_up_down_counter(
+                     name, std::move(cbs),
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("callbacks") = py::none(),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create an observable (asynchronous) up-down counter.")
+
+        .def("create_observable_gauge",
+             [](otel_wrapper::MeterWrapper& self, const std::string& name,
+                py::object callbacks, py::object unit, py::object description) {
+                 std::vector<py::object> cbs;
+                 if (!callbacks.is_none()) {
+                     for (auto cb : callbacks.cast<py::list>())
+                         cbs.push_back(py::reinterpret_borrow<py::object>(cb));
+                 }
+                 return self.create_observable_gauge(
+                     name, std::move(cbs),
+                     unit.is_none()        ? "" : unit.cast<std::string>(),
+                     description.is_none() ? "" : description.cast<std::string>());
+             },
+             py::arg("name"),
+             py::arg("callbacks") = py::none(),
+             py::arg("unit") = py::none(),
+             py::arg("description") = py::none(),
+             "Create an observable (asynchronous) gauge.");
+
+    py::class_<otel_wrapper::MeterProviderWrapper,
+               std::shared_ptr<otel_wrapper::MeterProviderWrapper>>(m, "MeterProvider")
+        .def(py::init<const std::string&>(),
+             py::arg("path"),
+             "Create a MeterProvider from an OTel YAML configuration file.")
+
+        .def("get_meter",
+             [](otel_wrapper::MeterProviderWrapper& self, const std::string& name,
+                py::object version, py::object schema_url, py::object attributes) {
+                 return self.get_meter(name, version, schema_url, attributes);
+             },
+             py::arg("name"),
+             py::arg("version") = py::none(),
+             py::arg("schema_url") = py::none(),
+             py::arg("attributes") = py::none(),
+             "Get (or create) a Meter for the given instrumentation scope.")
+
+        .def("shutdown", &otel_wrapper::MeterProviderWrapper::shutdown,
+             "Flush and shut down the meter provider.")
+
+        .def_property_readonly("configured", &otel_wrapper::MeterProviderWrapper::is_configured,
+             "True if a meter provider was built from the config file.");
 }

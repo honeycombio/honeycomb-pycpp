@@ -201,6 +201,7 @@ public:
         TracerProviderWrapper* provider = nullptr);
 
     void shutdown();
+    bool is_configured() const { return sdk_ && sdk_->tracer_provider; }
 
 private:
     std::unique_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
