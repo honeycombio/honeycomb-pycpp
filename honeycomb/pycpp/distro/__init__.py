@@ -4,7 +4,7 @@
 import os
 
 from opentelemetry.instrumentation.distro import BaseDistro
-from opentelemetry import trace
+from opentelemetry import metrics, trace
 from honeycomb.pycpp.distro.patch_api import patch
 import honeycomb_pycpp as otel
 
@@ -14,7 +14,13 @@ _DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "embe
 class OpenTelemetryConfigurator():
     def configure(self, **kwargs):
         """Configure the SDK"""
-        trace.set_tracer_provider(otel.TracerProvider(os.getenv("OTEL_CONFIG_FILE", _DEFAULT_CONFIG)))
+        config_file = os.getenv("OTEL_CONFIG_FILE", _DEFAULT_CONFIG)
+        tp = otel.TracerProvider(config_file)
+        if tp.configured:
+            trace.set_tracer_provider(tp)
+        mp = otel.MeterProvider(config_file)
+        if mp.configured:
+            metrics.set_meter_provider(mp)
 
 
 class OpenTelemetryDistro(BaseDistro):

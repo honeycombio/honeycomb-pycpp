@@ -46,7 +46,7 @@ def _get_current_span_from_cpp(context=None):
         if span and span.is_recording():
             return span
     except Exception as e:
-        print(f"Warning: Failed to get span from C++ context: {e}")
+        pass
 
     # Return non-recording span if nothing active
     return trace.INVALID_SPAN if OTEL_AVAILABLE else None
@@ -226,12 +226,10 @@ def patch():
     global _patched, _original_implementations
 
     if not OTEL_AVAILABLE:
-        print("Cannot patch: opentelemetry-api not installed")
         return False
 
     with _patch_lock:
         if _patched:
-            print("Already patched")
             return True
 
         try:
@@ -244,13 +242,9 @@ def patch():
             trace.use_span = _use_span_cpp
 
             _patched = True
-            print("✓ OpenTelemetry span context API patched to use C++ implementation")
-            print("  - trace.get_current_span() now reads from C++ RuntimeContext")
-            print("  - trace.use_span() now activates spans in C++ RuntimeContext")
             return True
 
         except Exception as e:
-            print(f"✗ Failed to patch OpenTelemetry API: {e}")
             # Restore any partial patches
             unpatch()
             return False
@@ -279,10 +273,9 @@ def unpatch():
 
             _original_implementations.clear()
             _patched = False
-            print("✓ OpenTelemetry API restored to original Python implementation")
 
         except Exception as e:
-            print(f"✗ Failed to unpatch OpenTelemetry API: {e}")
+            pass
 
 
 def is_patched():
@@ -308,27 +301,3 @@ class patched:
     def __exit__(self, exc_type, exc_val, exc_tb):
         unpatch()
         return False
-
-
-if __name__ == "__main__":
-    print("OpenTelemetry C++ Context Monkey Patch")
-    print("=" * 50)
-    print()
-    print("Usage:")
-    print("  from monkey_patch import patch, unpatch")
-    print()
-    print("  # Apply patches")
-    print("  patch()")
-    print()
-    print("  # Your code using Python OTel instrumentations")
-    print("  # They will now see C++ spans!")
-    print()
-    print("  # Remove patches (optional)")
-    print("  unpatch()")
-    print()
-    print("Or use as context manager:")
-    print("  from monkey_patch import patched")
-    print()
-    print("  with patched():")
-    print("      # Python OTel code here uses C++ context")
-    print("      pass")
