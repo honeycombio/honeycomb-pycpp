@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.3] - 2026-05-04
+
 ### New
 
 - feature: add meter provider support. (#14) | @codeboten
