@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(honeycomb_pycpp VERSION 0.1.3 LANGUAGES CXX)
+project(honeycomb_pycpp VERSION 0.1.4 LANGUAGES CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
