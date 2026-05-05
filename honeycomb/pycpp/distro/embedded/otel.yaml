@@ -34,3 +34,11 @@ meter_provider:
           otlp_http:
             endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}/v1/metrics
             headers_list: ${OTEL_EXPORTER_OTLP_HEADERS}
+
+logger_provider:
+  processors:
+    - batch:
+        exporter:
+          otlp_http:
+            endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}/v1/logs
+            headers_list: ${OTEL_EXPORTER_OTLP_HEADERS}

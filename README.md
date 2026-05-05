@@ -37,7 +37,7 @@ opentelemetry-instrument --service-name my-service python app.py
 
 The distro registers itself automatically via entry points — no code changes required.
 
-### Programmatic use
+### Tracing
 
 ```python
 import honeycomb_pycpp as otel
@@ -52,7 +52,7 @@ with tracer.start_as_current_span("my-span") as span:
     # ... do work ...
 ```
 
-### System metrics
+### Metrics
 
 Install the system metrics instrumentor:
 
@@ -74,6 +74,52 @@ SystemMetricsInstrumentor().instrument()
 ```
 
 This collects CPU, memory, network, and other host metrics and exports them via the C++ SDK.
+
+### Logs
+
+```python
+import honeycomb_pycpp as otel
+
+provider = otel.LoggerProvider("path/to/otel.yaml")
+
+logger = provider.get_logger("my-logger")
+
+# Emit using keyword arguments
+logger.emit(body="something happened", severity_number=otel.SeverityNumber.INFO)
+
+# Emit using a LogRecord object
+record = otel.LogRecord()
+record.body = "request failed"
+record.severity_number = otel.SeverityNumber.ERROR
+record.attributes = {"user.id": "u-123", "http.status_code": 500}
+logger.emit(record)
+
+# Attach an exception
+try:
+    1 / 0
+except ZeroDivisionError as exc:
+    record = otel.LogRecord()
+    record.body = "unhandled exception"
+    record.severity_number = otel.SeverityNumber.ERROR
+    record.exception = exc
+    logger.emit(record)
+
+provider.shutdown()
+```
+
+The `LoggerProvider` can also be used via bridges such that `opentelemetry-instrumentation-logging` work:
+
+```python
+import logging
+import honeycomb_pycpp as otel
+from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry._logs import get_logger_provider
+
+handler = LoggingHandler(logger_provider=otel.LoggerProvider("path/to/otel.yaml"))
+logging.getLogger().addHandler(handler)
+
+logging.getLogger("myapp").warning("watch out")
+```
 
 ### Deploying alongside the standard OpenTelemetry Python distro
 
@@ -103,7 +149,6 @@ If neither variable is set and both distros are installed, the one selected is n
 
 ## Current limitations
 
-- Tracing and metrics only — logs are not yet supported
 - OpenTelemetry C++ ABI v2 not yet enabled, any features relying on it (i.e. links) are not supported
 
 ## Building from source

@@ -38,6 +38,7 @@ include_directories(
 set(SOURCE_FILES
     src/tracer_wrapper.cpp
     src/meter_wrapper.cpp
+    src/logger_wrapper.cpp
     src/bindings.cpp
 )
 
@@ -65,6 +66,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::otlp_http_metric_exporter_builder
     opentelemetry-cpp::otlp_grpc_metrics_exporter
     opentelemetry-cpp::otlp_grpc_metric_exporter_builder
+    opentelemetry-cpp::logs
+    opentelemetry-cpp::ostream_log_record_exporter
+    opentelemetry-cpp::ostream_log_record_exporter_builder
+    opentelemetry-cpp::otlp_http_log_record_exporter
+    opentelemetry-cpp::otlp_http_log_record_exporter_builder
+    opentelemetry-cpp::otlp_grpc_log_record_exporter
+    opentelemetry-cpp::otlp_grpc_log_record_exporter_builder
     opentelemetry-cpp::resources
     opentelemetry-cpp::version
     CURL::libcurl

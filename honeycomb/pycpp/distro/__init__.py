@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Honeycomb Authors <support@honeycomb.io>
 # SPDX-License-Identifier: Apache-2.0
 
+import atexit
 import os
 
 from opentelemetry.instrumentation.distro import BaseDistro
 from opentelemetry import metrics, trace
+import opentelemetry._logs as logs
 from honeycomb.pycpp.distro.patch_api import patch
 import honeycomb_pycpp as otel
 
@@ -18,9 +20,15 @@ class OpenTelemetryConfigurator():
         tp = otel.TracerProvider(config_file)
         if tp.configured:
             trace.set_tracer_provider(tp)
+            atexit.register(tp.shutdown)
         mp = otel.MeterProvider(config_file)
         if mp.configured:
             metrics.set_meter_provider(mp)
+            atexit.register(mp.shutdown)
+        lp = otel.LoggerProvider(config_file)
+        if lp.configured:
+            logs.set_logger_provider(lp)
+            atexit.register(lp.shutdown)
 
 
 class OpenTelemetryDistro(BaseDistro):
