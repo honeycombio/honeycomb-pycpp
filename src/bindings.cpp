@@ -4,6 +4,7 @@
 
 #include "tracer_wrapper.h"
 #include "meter_wrapper.h"
+#include "logger_wrapper.h"
 #include "py_attribute_iterable.h"
 
 namespace py = pybind11;
@@ -690,4 +691,207 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
 
         .def_property_readonly("configured", &otel_wrapper::MeterProviderWrapper::is_configured,
              "True if a meter provider was built from the config file.");
+
+    // -----------------------------------------------------------------------
+    // Logging API
+    // -----------------------------------------------------------------------
+
+    py::enum_<opentelemetry::logs::Severity>(m, "SeverityNumber")
+        .value("UNSPECIFIED", opentelemetry::logs::Severity::kInvalid)
+        .value("TRACE",  opentelemetry::logs::Severity::kTrace)
+        .value("TRACE2", opentelemetry::logs::Severity::kTrace2)
+        .value("TRACE3", opentelemetry::logs::Severity::kTrace3)
+        .value("TRACE4", opentelemetry::logs::Severity::kTrace4)
+        .value("DEBUG",  opentelemetry::logs::Severity::kDebug)
+        .value("DEBUG2", opentelemetry::logs::Severity::kDebug2)
+        .value("DEBUG3", opentelemetry::logs::Severity::kDebug3)
+        .value("DEBUG4", opentelemetry::logs::Severity::kDebug4)
+        .value("INFO",   opentelemetry::logs::Severity::kInfo)
+        .value("INFO2",  opentelemetry::logs::Severity::kInfo2)
+        .value("INFO3",  opentelemetry::logs::Severity::kInfo3)
+        .value("INFO4",  opentelemetry::logs::Severity::kInfo4)
+        .value("WARN",   opentelemetry::logs::Severity::kWarn)
+        .value("WARN2",  opentelemetry::logs::Severity::kWarn2)
+        .value("WARN3",  opentelemetry::logs::Severity::kWarn3)
+        .value("WARN4",  opentelemetry::logs::Severity::kWarn4)
+        .value("ERROR",  opentelemetry::logs::Severity::kError)
+        .value("ERROR2", opentelemetry::logs::Severity::kError2)
+        .value("ERROR3", opentelemetry::logs::Severity::kError3)
+        .value("ERROR4", opentelemetry::logs::Severity::kError4)
+        .value("FATAL",  opentelemetry::logs::Severity::kFatal)
+        .value("FATAL2", opentelemetry::logs::Severity::kFatal2)
+        .value("FATAL3", opentelemetry::logs::Severity::kFatal3)
+        .value("FATAL4", opentelemetry::logs::Severity::kFatal4)
+        .export_values();
+
+    py::class_<otel_wrapper::LogRecordWrapper>(m, "LogRecord")
+        .def(py::init([](py::object timestamp,
+                         py::object observed_timestamp,
+                         py::object severity_number,
+                         py::object severity_text,
+                         py::object body,
+                         py::object attributes,
+                         py::object event_name,
+                         py::object exception) {
+                 otel_wrapper::LogRecordWrapper r;
+                 if (!timestamp.is_none())
+                     r.timestamp = timestamp.cast<uint64_t>();
+                 if (!observed_timestamp.is_none())
+                     r.observed_timestamp = observed_timestamp.cast<uint64_t>();
+                 if (!severity_number.is_none()) {
+                     if (py::hasattr(severity_number, "value")) {
+                         r.severity_number = severity_number.attr("value").cast<int>();
+                     } else {
+                         r.severity_number = severity_number.cast<int>();
+                     }
+                 }
+                 if (!severity_text.is_none())
+                     r.severity_text = severity_text.cast<std::string>();
+                 if (!body.is_none())
+                     r.body = body;
+                 if (!attributes.is_none())
+                     r.attributes = attributes.cast<py::dict>();
+                 if (!event_name.is_none())
+                     r.event_name = event_name.cast<std::string>();
+                 if (!exception.is_none())
+                     r.exception = exception;
+                 return r;
+             }),
+             py::arg("timestamp")          = py::none(),
+             py::arg("observed_timestamp") = py::none(),
+             py::arg("severity_number")    = py::none(),
+             py::arg("severity_text")      = py::none(),
+             py::arg("body")               = py::none(),
+             py::arg("attributes")         = py::none(),
+             py::arg("event_name")         = py::none(),
+             py::arg("exception")          = py::none())
+        .def_readwrite("timestamp",          &otel_wrapper::LogRecordWrapper::timestamp)
+        .def_readwrite("observed_timestamp", &otel_wrapper::LogRecordWrapper::observed_timestamp)
+        .def_property(
+            "severity_number",
+            [](const otel_wrapper::LogRecordWrapper& self) -> py::object {
+                return py::cast(static_cast<opentelemetry::logs::Severity>(self.severity_number));
+            },
+            [](otel_wrapper::LogRecordWrapper& self, py::object val) {
+                if (py::hasattr(val, "value")) {
+                    self.severity_number = val.attr("value").cast<int>();
+                } else {
+                    self.severity_number = val.cast<int>();
+                }
+            })
+        .def_readwrite("severity_text", &otel_wrapper::LogRecordWrapper::severity_text)
+        .def_readwrite("body",          &otel_wrapper::LogRecordWrapper::body)
+        .def_readwrite("attributes",    &otel_wrapper::LogRecordWrapper::attributes)
+        .def_readwrite("event_name",    &otel_wrapper::LogRecordWrapper::event_name)
+        .def_readwrite("exception",     &otel_wrapper::LogRecordWrapper::exception);
+
+    py::class_<otel_wrapper::LoggerWrapper,
+               std::shared_ptr<otel_wrapper::LoggerWrapper>>(m, "Logger")
+        .def("emit",
+             [](otel_wrapper::LoggerWrapper& self,
+                py::object record_or_none,
+                py::object timestamp,
+                py::object observed_timestamp,
+                py::object severity_number,
+                py::object severity_text,
+                py::object body,
+                py::object attributes,
+                py::object event_name,
+                py::object exception) {
+                 if (!record_or_none.is_none() &&
+                     py::isinstance<otel_wrapper::LogRecordWrapper>(record_or_none)) {
+                     self.emit(record_or_none.cast<otel_wrapper::LogRecordWrapper>());
+                     return;
+                 }
+                 // Handle a Python OTel LogRecord (duck-typed): extract its fields
+                 // so LoggingHandler and other Python bridges work transparently.
+                 if (!record_or_none.is_none() && py::hasattr(record_or_none, "severity_number")) {
+                     otel_wrapper::LogRecordWrapper r;
+                     auto get_opt = [&](const char* attr) -> py::object {
+                         if (!py::hasattr(record_or_none, attr)) return py::none();
+                         return record_or_none.attr(attr);
+                     };
+                     auto ts = get_opt("timestamp");
+                     if (!ts.is_none()) r.timestamp = ts.cast<uint64_t>();
+                     auto ots = get_opt("observed_timestamp");
+                     if (!ots.is_none()) r.observed_timestamp = ots.cast<uint64_t>();
+                     auto sn = get_opt("severity_number");
+                     if (!sn.is_none()) {
+                         if (py::hasattr(sn, "value")) {
+                             r.severity_number = sn.attr("value").cast<int>();
+                         } else {
+                             r.severity_number = sn.cast<int>();
+                         }
+                     }
+                     auto st = get_opt("severity_text");
+                     if (!st.is_none()) r.severity_text = st.cast<std::string>();
+                     auto b = get_opt("body");
+                     if (!b.is_none()) r.body = b;
+                     auto attrs = get_opt("attributes");
+                     if (!attrs.is_none() && py::isinstance<py::dict>(attrs))
+                         r.attributes = attrs.cast<py::dict>();
+                     auto en = get_opt("event_name");
+                     if (!en.is_none()) r.event_name = en.cast<std::string>();
+                     self.emit(r);
+                     return;
+                 }
+                 // Build a record from keyword arguments.
+                 otel_wrapper::LogRecordWrapper r;
+                 if (!timestamp.is_none())
+                     r.timestamp = timestamp.cast<uint64_t>();
+                 if (!observed_timestamp.is_none())
+                     r.observed_timestamp = observed_timestamp.cast<uint64_t>();
+                 if (!severity_number.is_none()) {
+                     if (py::hasattr(severity_number, "value")) {
+                         r.severity_number = severity_number.attr("value").cast<int>();
+                     } else {
+                         r.severity_number = severity_number.cast<int>();
+                     }
+                 }
+                 if (!severity_text.is_none())
+                     r.severity_text = severity_text.cast<std::string>();
+                 if (!body.is_none())
+                     r.body = body;
+                 if (!attributes.is_none())
+                     r.attributes = attributes.cast<py::dict>();
+                 if (!event_name.is_none())
+                     r.event_name = event_name.cast<std::string>();
+                 if (!exception.is_none())
+                     r.exception = exception;
+                 self.emit(r);
+             },
+             py::arg("record")             = py::none(),
+             py::arg("timestamp")          = py::none(),
+             py::arg("observed_timestamp") = py::none(),
+             py::arg("severity_number")    = py::none(),
+             py::arg("severity_text")      = py::none(),
+             py::arg("body")               = py::none(),
+             py::arg("attributes")         = py::none(),
+             py::arg("event_name")         = py::none(),
+             py::arg("exception")          = py::none(),
+             "Emit a log record. Pass a LogRecord object as the first argument, "
+             "or supply fields as keyword arguments.");
+
+    py::class_<otel_wrapper::LoggerProviderWrapper,
+               std::shared_ptr<otel_wrapper::LoggerProviderWrapper>>(m, "LoggerProvider")
+        .def(py::init<const std::string&>(),
+             py::arg("path"),
+             "Create a LoggerProvider from an OTel YAML configuration file.")
+        .def("get_logger",
+             [](otel_wrapper::LoggerProviderWrapper& self,
+                const std::string& name,
+                py::object version,
+                py::object schema_url,
+                py::object attributes) {
+                 return self.get_logger(name, version, schema_url, attributes);
+             },
+             py::arg("name"),
+             py::arg("version")    = py::none(),
+             py::arg("schema_url") = py::none(),
+             py::arg("attributes") = py::none(),
+             "Get (or create) a Logger for the given instrumentation scope.")
+        .def("shutdown", &otel_wrapper::LoggerProviderWrapper::shutdown,
+             "Flush and shut down the logger provider.")
+        .def_property_readonly("configured", &otel_wrapper::LoggerProviderWrapper::is_configured,
+             "True if a logger provider was built from the config file.");
 }
