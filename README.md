@@ -54,8 +54,8 @@ with tracer.start_as_current_span("my-span") as span:
 
 ## Current limitations
 
-- Tracing only — metrics and logs are not yet supported
-- Links require OpenTelemetry C++ ABI v2 (not yet enabled)
+- Tracing and metrics only — logs are not yet supported
+- OpenTelemetry C++ ABI v2 not yet enabled, any features relying on it (i.e. links) are not supported
 
 ## Building from source
 

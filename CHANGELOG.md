@@ -9,7 +9,6 @@
 - feature: add meter provider support. (#14) | @codeboten
 - feature: add configured property to TracerProvider to determine if it can be used or not. (#14) | @codeboten
 
-
 ### Fix
 
 - bugfix: clean up output when instrumenting is done. (#14) | @codeboten
