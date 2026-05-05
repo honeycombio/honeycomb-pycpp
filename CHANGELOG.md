@@ -2,13 +2,15 @@
 
 ## Unreleased
 
+## [0.1.4] - 2026-05-05
+
 ### New
 
-- feature: add logger provider support. (#) | @codeboten
+- feature: add logger provider support. (#15) | @codeboten
 
 ### Fix
 
-- bugfix: register shutdown for providers with atexit. (#) | @codeboten
+- bugfix: register shutdown for providers with atexit. (#15) | @codeboten
 
 ## [0.1.3] - 2026-05-04
 
