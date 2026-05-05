@@ -52,6 +52,29 @@ with tracer.start_as_current_span("my-span") as span:
     # ... do work ...
 ```
 
+### System metrics
+
+Install the system metrics instrumentor:
+
+```bash
+pip install opentelemetry-instrumentation-system-metrics
+```
+
+Then activate it programmatically after initializing the `MeterProvider`:
+
+```python
+import honeycomb_pycpp as otel
+from opentelemetry import metrics
+from opentelemetry.instrumentation.system_metrics import SystemMetricsInstrumentor
+
+provider = otel.MeterProvider("path/to/otel.yaml")
+metrics.set_meter_provider(provider)
+
+SystemMetricsInstrumentor().instrument()
+```
+
+This collects CPU, memory, network, and other host metrics and exports them via the C++ SDK.
+
 ## Current limitations
 
 - Tracing and metrics only — logs are not yet supported
