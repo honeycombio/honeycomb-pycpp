@@ -75,6 +75,32 @@ SystemMetricsInstrumentor().instrument()
 
 This collects CPU, memory, network, and other host metrics and exports them via the C++ SDK.
 
+### Deploying alongside the standard OpenTelemetry Python distro
+
+Both `honeycomb-pycpp` and the standard `opentelemetry-distro` can be installed at the same time. When both are present, `opentelemetry-instrument` may pick up either distro. Use `OTEL_PYTHON_DISTRO` and `OTEL_PYTHON_CONFIGURATOR` to explicitly select which one runs.
+
+```bash
+pip install honeycomb-pycpp opentelemetry-distro
+```
+
+To use this C++ distro:
+
+```bash
+OTEL_PYTHON_DISTRO=cpp_distro \
+OTEL_PYTHON_CONFIGURATOR=cpp_configurator \
+opentelemetry-instrument python app.py
+```
+
+To use the standard Python SDK distro:
+
+```bash
+OTEL_PYTHON_DISTRO=distro \
+OTEL_PYTHON_CONFIGURATOR=configurator \
+opentelemetry-instrument python app.py
+```
+
+If neither variable is set and both distros are installed, the one selected is non-deterministic — always set them explicitly in multi-distro environments.
+
 ## Current limitations
 
 - Tracing and metrics only — logs are not yet supported
