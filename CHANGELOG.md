@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.5] - 2026-05-06
+
+#### Fix
+
+- maint: build issue preventing all built wheels from being uploaded. | @codeboten
+
 ## [0.1.4] - 2026-05-05
 
 ### New
