@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.6] - 2026-05-08
+
+#### Fix
+
+- maint: support additional darwin versions. (#17) | @codeboten
+
 ## [0.1.5] - 2026-05-06
 
 #### Fix
