@@ -23,14 +23,7 @@ jobs:
     strategy:
       matrix:
         python_version: ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
-        os: [ubuntu-latest, ubuntu-24.04-arm]
-        include:
-          - os: macos-15-intel
-            macosx_deployment_target: "15.0"
-            python_version: "cp314-*"
-          - os: macos-14
-            macosx_deployment_target: "14.0"
-            python_version: "cp314-*"
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15]
 
     steps:
       - uses: actions/checkout@v6
@@ -52,7 +45,7 @@ jobs:
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
           PROTO_VERSION: ${{ env.PROTO_VERSION }}
           JSON_VERSION: ${{ env.JSON_VERSION }}
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.macosx_deployment_target }}
+          MACOSX_DEPLOYMENT_TARGET: "15.0"
           PIP_ONLY_BINARY: cmake
           CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
 
