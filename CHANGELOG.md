@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+#### Fix
+
+- maint: support musl linux versions. (#19) | @codeboten
+
 ## [0.1.8] - 2026-05-12
 
 #### Fix

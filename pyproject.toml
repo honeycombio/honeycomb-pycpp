@@ -40,7 +40,6 @@ DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel \
 """
 
 [tool.cibuildwheel]
-skip = "*-musllinux_*"
 build-verbosity = 0
 before-build = """
   pip install -r requirements-dev.txt
