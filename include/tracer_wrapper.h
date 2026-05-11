@@ -151,17 +151,21 @@ public:
     std::string get_parent_span_id() const;
     std::shared_ptr<SpanContextWrapper> get_span_context() const;
 
-    // Get the span kind
     int get_kind() const { return kind_; }
-
-    // Get the context that contains this span
     std::shared_ptr<ContextWrapper> get_context() const;
+
+    void set_record_exception_flag(bool v)        { record_exception_flag_ = v; }
+    void set_status_on_exception_flag(bool v)     { set_status_on_exception_flag_ = v; }
+    bool get_record_exception_flag() const        { return record_exception_flag_; }
+    bool get_set_status_on_exception_flag() const { return set_status_on_exception_flag_; }
 
 private:
     nostd::shared_ptr<trace_api::Span> span_;
-    std::optional<trace_api::Scope> scope_;  // Manages active span context
-    int kind_;  // SpanKind value
-    std::string parent_span_id_;  // Parent span ID (extracted from parent context)
+    std::optional<trace_api::Scope> scope_;
+    int kind_;
+    std::string parent_span_id_;
+    bool record_exception_flag_       = true;
+    bool set_status_on_exception_flag_ = true;
 };
 
 class TracerWrapper {
