@@ -12,7 +12,7 @@ One test per method / per optional parameter where applicable.
 import time
 import pytest
 import honeycomb_pycpp
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.trace import Link, SpanKind, Status, StatusCode
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +270,61 @@ class TestTracerStartSpan:
             assert sc_active.span_id != sc_new.span_id
         span.end()
 
+    # links -------------------------------------------------------------------
+
+    def test_with_links_empty_list(self, tracer):
+        span = tracer.start_span("linked-empty", links=[])
+        assert span is not None
+        span.end()
+
+    def test_with_links(self, tracer):
+        target = tracer.start_span("link-target")
+        link = Link(context=target.get_span_context())
+        span = tracer.start_span("linked", links=[link])
+        assert span is not None
+        span.end()
+        target.end()
+
+    def test_with_links_and_attributes(self, tracer):
+        target = tracer.start_span("link-target-attrs")
+        link = Link(context=target.get_span_context(), attributes={"reason": "cause"})
+        span = tracer.start_span("linked-attrs", links=[link])
+        assert span is not None
+        span.end()
+        target.end()
+
+    # record_exception / set_status_on_exception (take effect via __exit__) ---
+
+    def test_record_exception_true_reraises(self, tracer):
+        span = tracer.start_span("rec-exc-true")
+        with pytest.raises(RuntimeError, match="boom"):
+            with span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_record_exception_false_still_reraises(self, tracer):
+        span = tracer.start_span("rec-exc-false", record_exception=False)
+        with pytest.raises(RuntimeError, match="boom"):
+            with span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_set_status_on_exception_false_still_reraises(self, tracer):
+        span = tracer.start_span("no-status-exc", set_status_on_exception=False)
+        with pytest.raises(RuntimeError, match="boom"):
+            with span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_record_exception_and_set_status_both_false(self, tracer):
+        span = tracer.start_span("both-false",
+                                 record_exception=False,
+                                 set_status_on_exception=False)
+        with pytest.raises(ValueError):
+            with span:
+                raise ValueError("silent")
+        assert not span.is_recording()
+
 
 # ===========================================================================
 # Tracer.start_as_current_span — one test per optional parameter
@@ -355,6 +410,56 @@ class TestTracerStartAsCurrentSpan:
         with tracer.start_as_current_span("cm-span") as span:
             assert span.is_recording()
         # After __exit__, span should be ended and no longer recording
+        assert not span.is_recording()
+
+    # links -------------------------------------------------------------------
+
+    def test_with_links_empty_list(self, tracer):
+        with tracer.start_as_current_span("sacc-linked-empty", links=[]) as span:
+            assert span is not None
+
+    def test_with_links(self, tracer):
+        target = tracer.start_span("sacc-link-target")
+        link = Link(context=target.get_span_context())
+        with tracer.start_as_current_span("sacc-linked", links=[link]) as span:
+            assert span is not None
+        target.end()
+
+    def test_with_links_and_attributes(self, tracer):
+        target = tracer.start_span("sacc-link-target-attrs")
+        link = Link(context=target.get_span_context(), attributes={"reason": "cause"})
+        with tracer.start_as_current_span("sacc-linked-attrs", links=[link]) as span:
+            assert span is not None
+        target.end()
+
+    # record_exception / set_status_on_exception ------------------------------
+
+    def test_record_exception_true_reraises(self, tracer):
+        with pytest.raises(RuntimeError, match="boom"):
+            with tracer.start_as_current_span("sacc-rec-exc") as span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_record_exception_false_still_reraises(self, tracer):
+        with pytest.raises(RuntimeError, match="boom"):
+            with tracer.start_as_current_span("sacc-no-rec-exc",
+                                              record_exception=False) as span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_set_status_on_exception_false_still_reraises(self, tracer):
+        with pytest.raises(RuntimeError, match="boom"):
+            with tracer.start_as_current_span("sacc-no-status-exc",
+                                              set_status_on_exception=False) as span:
+                raise RuntimeError("boom")
+        assert not span.is_recording()
+
+    def test_record_exception_and_set_status_both_false(self, tracer):
+        with pytest.raises(ValueError):
+            with tracer.start_as_current_span("sacc-both-false",
+                                              record_exception=False,
+                                              set_status_on_exception=False) as span:
+                raise ValueError("silent")
         assert not span.is_recording()
 
 
