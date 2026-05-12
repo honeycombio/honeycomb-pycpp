@@ -18,12 +18,18 @@ on:
 
 jobs:
   build_wheels:
-    name: Build ${{ matrix.python_version }} wheels on (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.python_version }} wheels on ${{ matrix.config.os }} (${{ matrix.config.variant }})
+    runs-on: ${{ matrix.config.os }}
     strategy:
       matrix:
         python_version: ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15]
+        config:
+          - { os: ubuntu-latest,      variant: manylinux, cibw_skip: "*-musllinux*" }
+          - { os: ubuntu-latest,      variant: musllinux,  cibw_skip: "*-manylinux*" }
+          - { os: ubuntu-24.04-arm,   variant: manylinux, cibw_skip: "*-musllinux*" }
+          - { os: ubuntu-24.04-arm,   variant: musllinux,  cibw_skip: "*-manylinux*" }
+          - { os: macos-15-intel,     variant: macos,      cibw_skip: "" }
+          - { os: macos-15,           variant: macos,      cibw_skip: "" }
 
     steps:
       - uses: actions/checkout@v6
@@ -32,14 +38,15 @@ jobs:
 
       - uses: actions/cache@v5
         with:
-          path: .cibw-cache/${{ matrix.os }}
-          key: cibw-${{ matrix.os }}-${{ matrix.python_version }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+          path: .cibw-cache/${{ matrix.config.os }}-${{ matrix.config.variant }}
+          key: cibw-${{ matrix.config.os }}-${{ matrix.config.variant }}-${{ matrix.python_version }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: ${{ matrix.python_version }}
-          ARCH: /${{ matrix.os }}
+          CIBW_SKIP: ${{ matrix.config.cibw_skip }}
+          ARCH: /${{ matrix.config.os }}
           CPP_VERSION: ${{ env.CPP_VERSION }}
           CURL_VERSION: ${{ env.CURL_VERSION }}
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
@@ -52,7 +59,7 @@ jobs:
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          name: wheels-${{ matrix.config.os }}-${{ matrix.config.variant }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
