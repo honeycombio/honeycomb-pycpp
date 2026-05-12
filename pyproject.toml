@@ -66,6 +66,8 @@ before-all = """
     if [ ! -f /usr/bin/cmake ] && [ -f /usr/bin/cmake3 ]; then
       ln -sf /usr/bin/cmake3 /usr/bin/cmake
     fi
+  elif command -v apk &> /dev/null; then
+    apk add --no-cache cmake g++ openssl-dev curl-dev zlib-dev wget autoconf automake libtool yaml-cpp-dev linux-headers
   elif command -v apt-get &> /dev/null; then
     apt-get update
     apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool libyaml-cpp-dev
