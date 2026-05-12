@@ -377,7 +377,8 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
                     self->set_status(error_status);
                 }
             }
-            self->end();
+            if (self->get_end_on_exit_flag())
+                self->end();
             return false;
         });
 
@@ -386,9 +387,9 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
         .def("start_span",
              [](otel_wrapper::TracerWrapper& self,
                 const std::string& name,
-                py::object attributes,
                 py::object context,
                 py::object kind,
+                py::object attributes,
                 py::object links,
                 py::object start_time,
                 bool record_exception,
@@ -440,25 +441,26 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
                  return span;
              },
              py::arg("name"),
-             py::arg("attributes") = py::none(),
              py::arg("context") = py::none(),
              py::arg("kind") = py::none(),
+             py::arg("attributes") = py::none(),
              py::arg("links") = py::none(),
              py::arg("start_time") = py::none(),
              py::arg("record_exception") = true,
              py::arg("set_status_on_exception") = true,
-             "Start a new span with optional attributes, context, kind, links, and start_time")
+             "Start a new span with optional context, kind, attributes, links, and start_time")
 
         .def("start_as_current_span",
              [](otel_wrapper::TracerWrapper& self,
                 const std::string& name,
-                py::object attributes,
                 py::object context,
                 py::object kind,
+                py::object attributes,
                 py::object links,
                 py::object start_time,
                 bool record_exception,
-                bool set_status_on_exception) {
+                bool set_status_on_exception,
+                bool end_on_exit) {
                  std::shared_ptr<otel_wrapper::ContextWrapper> ctx_ptr = nullptr;
                  if (!context.is_none() && !py::isinstance<py::dict>(context)) {
                      ctx_ptr = context.cast<std::shared_ptr<otel_wrapper::ContextWrapper>>();
@@ -504,16 +506,18 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
 
                  span->set_record_exception_flag(record_exception);
                  span->set_status_on_exception_flag(set_status_on_exception);
+                 span->set_end_on_exit_flag(end_on_exit);
                  return span;
              },
              py::arg("name"),
-             py::arg("attributes") = py::none(),
              py::arg("context") = py::none(),
              py::arg("kind") = py::none(),
+             py::arg("attributes") = py::none(),
              py::arg("links") = py::none(),
              py::arg("start_time") = py::none(),
              py::arg("record_exception") = true,
              py::arg("set_status_on_exception") = true,
+             py::arg("end_on_exit") = true,
              "Start a new span as the current active span");
 
     // TracerProviderWrapper class

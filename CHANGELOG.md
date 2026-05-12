@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+#### Fix
+
+- bugfix: support kwargs and end_on_exit in methods that start spans. (#21) | @codeboten
+
 ## [0.1.8] - 2026-05-12
 
 #### Fix
