@@ -17,9 +17,52 @@ on:
   workflow_dispatch:
 
 jobs:
+  build_deps:
+    name: Build C++ deps for ${{ matrix.config.os }} (${{ matrix.config.variant }})
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      matrix:
+        config:
+          - { os: ubuntu-latest,      variant: manylinux, cibw_skip: "*-musllinux*" }
+          - { os: ubuntu-latest,      variant: musllinux,  cibw_skip: "*-manylinux*" }
+          - { os: ubuntu-24.04-arm,   variant: manylinux, cibw_skip: "*-musllinux*" }
+          - { os: ubuntu-24.04-arm,   variant: musllinux,  cibw_skip: "*-manylinux*" }
+          - { os: macos-15-intel,     variant: macos,      cibw_skip: "" }
+          - { os: macos-15,           variant: macos,      cibw_skip: "" }
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v5
+        with:
+          path: .cibw-cache/${{ matrix.config.os }}-${{ matrix.config.variant }}
+          key: cibw-${{ matrix.config.os }}-${{ matrix.config.variant }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
+
+      # Run before-all once per OS/variant to warm the cache. cibuildwheel is
+      # the easiest way to invoke the before-all script in the right environment
+      # (including the Docker container for Linux), so we build a single dummy
+      # Python version and throw away the wheel.
+      - name: Warm deps cache
+        uses: pypa/cibuildwheel@v3.4.1
+        env:
+          CIBW_BUILD: "cp312-*"
+          CIBW_SKIP: ${{ matrix.config.cibw_skip }}
+          ARCH: ${{ matrix.config.os }}-${{ matrix.config.variant }}
+          CPP_VERSION: ${{ env.CPP_VERSION }}
+          CURL_VERSION: ${{ env.CURL_VERSION }}
+          OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
+          PROTO_VERSION: ${{ env.PROTO_VERSION }}
+          JSON_VERSION: ${{ env.JSON_VERSION }}
+          MACOSX_DEPLOYMENT_TARGET: "15.0"
+          PIP_ONLY_BINARY: cmake
+          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
+
   build_wheels:
     name: Build ${{ matrix.python_version }} wheels on ${{ matrix.config.os }} (${{ matrix.config.variant }})
     runs-on: ${{ matrix.config.os }}
+    needs: [build_deps]
     strategy:
       matrix:
         python_version: ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
@@ -39,14 +82,14 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .cibw-cache/${{ matrix.config.os }}-${{ matrix.config.variant }}
-          key: cibw-${{ matrix.config.os }}-${{ matrix.config.variant }}-${{ matrix.python_version }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+          key: cibw-${{ matrix.config.os }}-${{ matrix.config.variant }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: ${{ matrix.python_version }}
           CIBW_SKIP: ${{ matrix.config.cibw_skip }}
-          ARCH: /${{ matrix.config.os }}
+          ARCH: ${{ matrix.config.os }}-${{ matrix.config.variant }}
           CPP_VERSION: ${{ env.CPP_VERSION }}
           CURL_VERSION: ${{ env.CURL_VERSION }}
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}

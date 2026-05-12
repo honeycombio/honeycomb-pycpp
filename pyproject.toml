@@ -56,6 +56,30 @@ before-all = """
     INSTALLDIR="$(brew --prefix)"
   fi
 
+  # Per-arch cache: /project is the workspace mount inside Linux containers;
+  # $GITHUB_WORKSPACE is used on macOS where the script runs on the host directly.
+  if [ -d "/cibw-cache" ]; then
+    CACHE="/cibw-cache/$ARCH"
+  elif [ -n "$GITHUB_WORKSPACE" ]; then
+    CACHE="$GITHUB_WORKSPACE/.cibw-cache/$ARCH"
+  else
+    CACHE="$HOME/.cibw-cache/$ARCH"
+  fi
+  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION"
+
+  # Check cache BEFORE installing packages. On a hit the cached prefix (including
+  # any previously built OTel/curl/protobuf artifacts) is restored, so there is no
+  # need to run the package manager at all — saving ~1–2 min on every cache hit.
+  if [ -f "$STAMP" ]; then
+    echo "Cache hit for $ARCH — restoring deps"
+    # || true: tar exits non-zero when it encounters files already present in
+    # $INSTALLDIR from the base image (autotools, libtool, etc.). Our OTel/curl
+    # files are extracted successfully before those conflicts are hit.
+    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xmf -) || true
+    ldconfig || true
+    exit 0
+  fi
+  echo "Cache miss for $ARCH — building from source"
 
   # Install build tools and dependencies (check which package manager is available)
   if command -v yum &> /dev/null; then
@@ -72,33 +96,16 @@ before-all = """
     apt-get update
     apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool libyaml-cpp-dev
   elif command -v brew &> /dev/null; then
-    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp grpc
+    # Do NOT install grpc via brew: brew's gRPC is split into 80+ individual
+    # libabsl_*.dylib files that delocate must bundle one-by-one, making the
+    # repair-wheel step take ~19 min per Python version.  Instead we let OTel's
+    # cmake FetchContent pull and build gRPC+abseil statically (same as Linux),
+    # so delocate only needs to bundle libcurl, libssl, and libcrypto.
+    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp
     OPENSSL_OPTS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
     CURL_OPTS="-DCURL_ROOT_DIR=$(brew --prefix curl)"
     CURL_SSL_OPTS="--with-openssl=$(brew --prefix openssl)"
   fi
-
-  # Per-arch cache: /project is the workspace mount inside Linux containers;
-  # $GITHUB_WORKSPACE is used on macOS where the script runs on the host directly.
-  if [ -d "/cibw-cache" ]; then
-    CACHE="/cibw-cache/$ARCH"
-  elif [ -n "$GITHUB_WORKSPACE" ]; then
-    CACHE="$GITHUB_WORKSPACE/.cibw-cache/$ARCH"
-  else
-    CACHE="$HOME/.cibw-cache/$ARCH"
-  fi
-  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION"
-
-  if [ -f "$STAMP" ]; then
-    echo "Cache hit for $ARCH — restoring deps"
-    # || true: tar exits non-zero when it encounters files already present in
-    # $INSTALLDIR from the base image (autotools, libtool, etc.). Our OTel/curl
-    # files are extracted successfully before those conflicts are hit.
-    (cd "$CACHE/usr" && tar -cf - .) | (cd "$INSTALLDIR" && tar -xmf -) || true
-    ldconfig || true
-    exit 0
-  fi
-  echo "Cache miss for $ARCH — building from source"
 
   # Build and install a newer curl (required for OpenTelemetry HTTP exporter)
   cd /tmp
@@ -110,18 +117,18 @@ before-all = """
   make install
   command -v ldconfig &>/dev/null && ldconfig || true
 
-  if ! command -v brew &> /dev/null; then
-    # Build and install a newer protobuf with CMake (required for OpenTelemetry)
-    # on darwin, the installation of grpc automatically pulls in a newer protobuf
-    cd /tmp
-    wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-$PROTO_VERSION.tar.gz
-    tar -xzf protobuf-cpp-$PROTO_VERSION.tar.gz
-    cd /tmp/protobuf-$PROTO_VERSION
-    cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
-    cmake --build build -j2
-    cmake --install build
-    command -v ldconfig &>/dev/null && ldconfig || true
-  fi
+  # Build and install protobuf from source on all platforms.
+  # On Linux gRPC is fetched via FetchContent and needs -DgRPC_PROTOBUF_PROVIDER=package
+  # to avoid pulling in a second copy.  On macOS we no longer use brew's gRPC (see
+  # comment above), so OTel will also FetchContent gRPC and needs the same treatment.
+  cd /tmp
+  wget -q https://github.com/protocolbuffers/protobuf/releases/download/v21.12/protobuf-cpp-$PROTO_VERSION.tar.gz
+  tar -xzf protobuf-cpp-$PROTO_VERSION.tar.gz
+  cd /tmp/protobuf-$PROTO_VERSION
+  cmake -B build -DCMAKE_INSTALL_PREFIX=$INSTALLDIR -DCMAKE_POSITION_INDEPENDENT_CODE=ON -Dprotobuf_BUILD_TESTS=OFF
+  cmake --build build -j2
+  cmake --install build
+  command -v ldconfig &>/dev/null && ldconfig || true
 
   # Install nlohmann-json
   cd /tmp
@@ -142,18 +149,26 @@ before-all = """
   tar -xzf v$CPP_VERSION.tar.gz
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
-  # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
-  # On Linux, OTel FetchContent-downloads gRPC, and without intervention gRPC then
-  # downloads its own copy of protobuf.  With static linking that produces two copies
-  # of protobuf in the same .so, both registering the same descriptors at import time
-  # → fatal "File already exists in database" crash.  Setting gRPC_PROTOBUF_PROVIDER=package
-  # makes gRPC use find_package(Protobuf) instead, pointing at the protobuf we
-  # already built, so only one copy is ever linked.
+  # Build everything statically on all platforms.
+  #
+  # macOS previously used SHARED_LIBS=ON with brew's gRPC, but brew's abseil is
+  # split into 80+ individual .dylib files that delocate-wheel must process one
+  # by one, making the repair-wheel step take ~19 min per Python version.  With
+  # SHARED_LIBS=OFF and OTel FetchContent-downloading gRPC+abseil, those libs are
+  # compiled directly into the extension and delocate only needs to bundle
+  # libcurl, libssl, and libcrypto — reducing repair time to seconds.
+  #
+  # On all platforms: set gRPC_PROTOBUF_PROVIDER=package so that gRPC (however it
+  # is fetched) uses the protobuf we already built rather than downloading its own
+  # copy, which would cause duplicate descriptor registration at import time.
+  #
+  # On macOS: set gRPC_SSL_PROVIDER=package so gRPC uses brew's openssl (same as
+  # our curl build) instead of fetching boringssl, avoiding two TLS implementations
+  # with overlapping symbol names in the same binary.
+  SHARED_LIBS=OFF
   if command -v brew &> /dev/null; then
-    SHARED_LIBS=ON
-    EXTRA_CMAKE_OPTS="-DCMAKE_INSTALL_RPATH=$INSTALLDIR/lib -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DOTELCPP_VERSIONED_LIBS=ON"
+    EXTRA_CMAKE_OPTS="-DgRPC_PROTOBUF_PROVIDER=package -DgRPC_SSL_PROVIDER=package $OPENSSL_OPTS"
   else
-    SHARED_LIBS=OFF
     EXTRA_CMAKE_OPTS="-DgRPC_PROTOBUF_PROVIDER=package"
   fi
 
