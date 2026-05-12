@@ -258,6 +258,15 @@ class TestTracerStartSpan:
         span.end()
         parent.end()
 
+    def test_otel_positional_arg_order(self, tracer):
+        """start_span positional order matches opentelemetry-api: (name, context, kind, attributes, ...)."""
+        parent = tracer.start_span("pos-parent")
+        ctx = parent.get_context()
+        span = tracer.start_span("pos-span", ctx, SpanKind.CLIENT, {"env": "test"})
+        assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
+        span.end()
+        parent.end()
+
     def test_does_not_become_current(self, tracer):
         """start_span does NOT set the span as current (use start_as_current_span for that)."""
         span = tracer.start_span("not-current")
@@ -461,6 +470,28 @@ class TestTracerStartAsCurrentSpan:
                                               set_status_on_exception=False) as span:
                 raise ValueError("silent")
         assert not span.is_recording()
+
+    def test_end_on_exit_true_ends_span(self, tracer):
+        """end_on_exit=True (default) ends the span on context exit."""
+        with tracer.start_as_current_span("sacc-end-on-exit", end_on_exit=True) as span:
+            assert span.is_recording()
+        assert not span.is_recording()
+
+    def test_end_on_exit_false_does_not_end_span(self, tracer):
+        """end_on_exit=False leaves the span running after context exit; caller must end it."""
+        with tracer.start_as_current_span("sacc-no-end-on-exit", end_on_exit=False) as span:
+            assert span.is_recording()
+        assert span.is_recording()
+        span.end()
+        assert not span.is_recording()
+
+    def test_otel_positional_arg_order(self, tracer):
+        """start_as_current_span positional order matches opentelemetry-api: (name, context, kind, attributes, ...)."""
+        parent = tracer.start_span("sacc-pos-parent")
+        ctx = parent.get_context()
+        with tracer.start_as_current_span("sacc-pos", ctx, SpanKind.CLIENT, {"env": "test"}) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
+        parent.end()
 
 
 # ===========================================================================
