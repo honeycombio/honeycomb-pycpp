@@ -101,8 +101,10 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
             auto builtins = py::module_::import("builtins");
             return builtins.attr("int")(self.get_span_id(), 16);
         }, "Span ID as an integer (64-bit), matching opentelemetry.trace.SpanContext")
-        .def_property_readonly("trace_flags", &otel_wrapper::SpanContextWrapper::get_trace_flags,
-                              "Trace flags byte")
+        .def_property_readonly("trace_flags", [](const otel_wrapper::SpanContextWrapper& self) -> py::object {
+            auto trace_mod = py::module_::import("opentelemetry.trace");
+            return trace_mod.attr("TraceFlags")(self.get_trace_flags());
+        }, "Trace flags as opentelemetry.trace.TraceFlags")
         .def_property_readonly("is_remote", &otel_wrapper::SpanContextWrapper::get_is_remote,
                               "True if the span context was propagated from a remote parent")
         .def_property_readonly("is_valid", &otel_wrapper::SpanContextWrapper::get_is_valid,

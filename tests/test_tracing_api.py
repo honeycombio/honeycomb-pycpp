@@ -848,6 +848,28 @@ class TestSpanContext:
         assert isinstance(sc.trace_flags, int)
         span.end()
 
+    def test_span_context_trace_flags_has_sampled_true(self, tracer):
+        from opentelemetry.trace import TraceFlags
+        span = tracer.start_span("sc")
+        sc = span.get_span_context()
+        assert isinstance(sc.trace_flags, TraceFlags)
+        assert hasattr(sc.trace_flags, "sampled")
+        assert sc.trace_flags.sampled is True
+        span.end()
+
+    def test_span_context_trace_flags_has_sampled_false(self):
+        from opentelemetry.trace import TraceFlags
+        never_provider = honeycomb_pycpp.TracerProvider(
+            "./tests/testdata/otel_never_sample.yaml"
+        )
+        t = never_provider.get_tracer("never-sampler-tracer")
+        span = t.start_span("unsampled")
+        sc = span.get_span_context()
+        assert isinstance(sc.trace_flags, TraceFlags)
+        assert sc.trace_flags.sampled is False
+        span.end()
+        never_provider.shutdown()
+
     def test_span_context_is_remote_is_bool(self, tracer):
         span = tracer.start_span("sc")
         sc = span.get_span_context()
@@ -938,14 +960,29 @@ class TestContext:
         span = ctx.get_span()
         assert span is not None
 
-    def test_create_with_span_context_explicit_trace_flags(self):
+    def test_create_with_span_context_trace_flags_sampled(self):
+        from opentelemetry.trace import TraceFlags
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
         span_id = "00f067aa0ba902b7"
         ctx = honeycomb_pycpp.Context.create_with_span_context(
-            trace_id, span_id, trace_flags=1
+            trace_id, span_id, TraceFlags(1)
         )
         sc = ctx.get_span().get_span_context()
+        assert isinstance(sc.trace_flags, TraceFlags)
         assert sc.trace_flags == 1
+        assert sc.trace_flags.sampled is True
+
+    def test_create_with_span_context_trace_flags_not_sampled(self):
+        from opentelemetry.trace import TraceFlags
+        trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"
+        span_id = "00f067aa0ba902b7"
+        ctx = honeycomb_pycpp.Context.create_with_span_context(
+            trace_id, span_id, TraceFlags(0)
+        )
+        sc = ctx.get_span().get_span_context()
+        assert isinstance(sc.trace_flags, TraceFlags)
+        assert sc.trace_flags == 0
+        assert sc.trace_flags.sampled is False
 
     def test_create_with_span_context_is_remote_true(self):
         trace_id = "4bf92f3577b34da6a3ce929d0e0e4736"

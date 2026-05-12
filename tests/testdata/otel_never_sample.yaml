@@ -1,0 +1,21 @@
+file_format: "1.0"
+
+tracer_provider:
+  sampler:
+    always_off:
+  processors:
+    - simple:
+        exporter:
+          console: {}
+
+meter_provider:
+  readers:
+    - periodic:
+        exporter:
+          console: {}
+
+logger_provider:
+  processors:
+    - simple:
+        exporter:
+          console: {}
