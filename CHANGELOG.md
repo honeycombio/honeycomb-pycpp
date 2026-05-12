@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.8] - 2026-05-12
+
 #### Fix
 
 - bugfix: use `opentelemetry.trace.TraceFlags` when returning the span context wrapper's trace flags. (#20) | @codeboten
