@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.1.7] - 2026-05-12
+
+#### Fix
+
 - bugfix: support `links`, `record_exception`, and `set_status_on_exception` arguments in `start_span` and `start_as_current_span`. (#18) | @codeboten
 
 ## [0.1.6] - 2026-05-08
