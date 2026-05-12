@@ -156,8 +156,10 @@ public:
 
     void set_record_exception_flag(bool v)        { record_exception_flag_ = v; }
     void set_status_on_exception_flag(bool v)     { set_status_on_exception_flag_ = v; }
+    void set_end_on_exit_flag(bool v)             { end_on_exit_flag_ = v; }
     bool get_record_exception_flag() const        { return record_exception_flag_; }
     bool get_set_status_on_exception_flag() const { return set_status_on_exception_flag_; }
+    bool get_end_on_exit_flag() const             { return end_on_exit_flag_; }
 
 private:
     nostd::shared_ptr<trace_api::Span> span_;
@@ -166,6 +168,7 @@ private:
     std::string parent_span_id_;
     bool record_exception_flag_       = true;
     bool set_status_on_exception_flag_ = true;
+    bool end_on_exit_flag_             = true;
 };
 
 class TracerWrapper {
