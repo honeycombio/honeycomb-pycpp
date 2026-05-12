@@ -143,15 +143,18 @@ before-all = """
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
   # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
-  # On Linux, OTel FetchContent-downloads gRPC which downloads its own protobuf as
-  # a shared lib, but the protoc binary can't find libprotoc.so at build time.
-  # Building static avoids that problem and produces a self-contained extension.
+  # On Linux, OTel FetchContent-downloads gRPC, and without intervention gRPC then
+  # downloads its own copy of protobuf.  With static linking that produces two copies
+  # of protobuf in the same .so, both registering the same descriptors at import time
+  # → fatal "File already exists in database" crash.  Setting gRPC_PROTOBUF_PROVIDER=package
+  # makes gRPC use find_package(Protobuf) instead, pointing at the protobuf we
+  # already built, so only one copy is ever linked.
   if command -v brew &> /dev/null; then
     SHARED_LIBS=ON
     EXTRA_CMAKE_OPTS="-DCMAKE_INSTALL_RPATH=$INSTALLDIR/lib -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DOTELCPP_VERSIONED_LIBS=ON"
   else
     SHARED_LIBS=OFF
-    EXTRA_CMAKE_OPTS=""
+    EXTRA_CMAKE_OPTS="-DgRPC_PROTOBUF_PROVIDER=package"
   fi
 
   cmake -B build \
