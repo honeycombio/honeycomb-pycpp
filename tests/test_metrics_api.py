@@ -11,6 +11,7 @@ One test per method / per optional parameter where applicable.
 
 import pytest
 import honeycomb_pycpp
+import opentelemetry.context as otel_context
 
 
 # ---------------------------------------------------------------------------
@@ -271,6 +272,10 @@ class TestCounter:
         c.add(2)
         c.add(3)
 
+    def test_add_with_context_kwarg(self, meter):
+        c = meter.create_counter("test.counter.context")
+        c.add(1, attributes={"k": "v"}, context=otel_context.get_current())
+
 
 # ===========================================================================
 # UpDownCounter
@@ -301,6 +306,10 @@ class TestUpDownCounter:
         c = meter.create_up_down_counter("test.updown.sequence")
         c.add(10)
         c.add(-4)
+
+    def test_add_with_context_kwarg(self, meter):
+        c = meter.create_up_down_counter("test.updown.context")
+        c.add(1, attributes={"k": "v"}, context=otel_context.get_current())
 
 
 # ===========================================================================
@@ -337,6 +346,10 @@ class TestHistogram:
         for val in [10, 50, 100, 200, 500]:
             h.record(val)
 
+    def test_record_with_context_kwarg(self, meter):
+        h = meter.create_histogram("test.histogram.context")
+        h.record(42, attributes={"k": "v"}, context=otel_context.get_current())
+
 
 # ===========================================================================
 # Gauge
@@ -368,3 +381,7 @@ class TestGauge:
         g.set(10)
         g.set(20)
         g.set(15)
+
+    def test_set_with_context_kwarg(self, meter):
+        g = meter.create_gauge("test.gauge.context")
+        g.set(1.0, attributes={"k": "v"}, context=otel_context.get_current())

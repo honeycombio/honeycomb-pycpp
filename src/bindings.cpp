@@ -8,9 +8,35 @@
 #include "sdk_wrapper.h"
 #include "py_attribute_iterable.h"
 
+#include "opentelemetry/context/runtime_context.h"
+
 namespace py = pybind11;
 
 namespace {
+
+// Extract a C++ context from a Python opentelemetry.context.Context object.
+// If the Python context holds a SpanWrapper, build the C++ context from its
+// span context so the SDK can record exemplars against the right span.
+// Falls back to the current C++ runtime context if nothing useful is found.
+opentelemetry::context::Context cpp_context_from_py(py::object py_ctx) {
+    if (py_ctx.is_none()) {
+        return opentelemetry::context::RuntimeContext::GetCurrent();
+    }
+    if (py::isinstance<otel_wrapper::ContextWrapper>(py_ctx)) {
+        return py_ctx.cast<std::shared_ptr<otel_wrapper::ContextWrapper>>()->get_context();
+    }
+    try {
+        auto otel_ctx = py::module_::import("opentelemetry.context");
+        auto span_key = py::module_::import("opentelemetry.trace.propagation").attr("_SPAN_KEY");
+        py::object span = otel_ctx.attr("get_value")(span_key, py_ctx);
+        if (!span.is_none() && py::isinstance<otel_wrapper::SpanWrapper>(span)) {
+            auto ctx_wrapper = span.cast<std::shared_ptr<otel_wrapper::SpanWrapper>>()->get_context();
+            if (ctx_wrapper) return ctx_wrapper->get_context();
+        }
+    } catch (...) {}
+    return opentelemetry::context::RuntimeContext::GetCurrent();
+}
+
 void set_span_attribute(otel_wrapper::SpanWrapper& span,
                         const std::string& key,
                         py::object value) {
@@ -569,61 +595,73 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
     py::class_<otel_wrapper::CounterWrapper,
                std::shared_ptr<otel_wrapper::CounterWrapper>>(m, "Counter")
         .def("add",
-             [](otel_wrapper::CounterWrapper& self, double amount, py::object attributes) {
+             [](otel_wrapper::CounterWrapper& self, double amount, py::object attributes,
+                py::object context) {
+                 auto ctx = cpp_context_from_py(context);
                  if (!attributes.is_none()) {
                      PyAttributeIterable attrs(attributes.cast<py::dict>());
-                     self.add(amount, &attrs);
+                     self.add(amount, &attrs, ctx);
                  } else {
-                     self.add(amount);
+                     self.add(amount, nullptr, ctx);
                  }
              },
              py::arg("amount"),
              py::arg("attributes") = py::none(),
+             py::arg("context") = py::none(),
              "Increment the counter by amount. amount must be non-negative.");
 
     py::class_<otel_wrapper::UpDownCounterWrapper,
                std::shared_ptr<otel_wrapper::UpDownCounterWrapper>>(m, "UpDownCounter")
         .def("add",
-             [](otel_wrapper::UpDownCounterWrapper& self, double amount, py::object attributes) {
+             [](otel_wrapper::UpDownCounterWrapper& self, double amount, py::object attributes,
+                py::object context) {
+                 auto ctx = cpp_context_from_py(context);
                  if (!attributes.is_none()) {
                      PyAttributeIterable attrs(attributes.cast<py::dict>());
-                     self.add(amount, &attrs);
+                     self.add(amount, &attrs, ctx);
                  } else {
-                     self.add(amount);
+                     self.add(amount, nullptr, ctx);
                  }
              },
              py::arg("amount"),
              py::arg("attributes") = py::none(),
+             py::arg("context") = py::none(),
              "Add amount to the up-down counter. May be positive, negative, or zero.");
 
     py::class_<otel_wrapper::HistogramWrapper,
                std::shared_ptr<otel_wrapper::HistogramWrapper>>(m, "Histogram")
         .def("record",
-             [](otel_wrapper::HistogramWrapper& self, double amount, py::object attributes) {
+             [](otel_wrapper::HistogramWrapper& self, double amount, py::object attributes,
+                py::object context) {
+                 auto ctx = cpp_context_from_py(context);
                  if (!attributes.is_none()) {
                      PyAttributeIterable attrs(attributes.cast<py::dict>());
-                     self.record(amount, &attrs);
+                     self.record(amount, &attrs, ctx);
                  } else {
-                     self.record(amount);
+                     self.record(amount, nullptr, ctx);
                  }
              },
              py::arg("amount"),
              py::arg("attributes") = py::none(),
+             py::arg("context") = py::none(),
              "Record a measurement in the histogram.");
 
     py::class_<otel_wrapper::GaugeWrapper,
                std::shared_ptr<otel_wrapper::GaugeWrapper>>(m, "Gauge")
         .def("set",
-             [](otel_wrapper::GaugeWrapper& self, double amount, py::object attributes) {
+             [](otel_wrapper::GaugeWrapper& self, double amount, py::object attributes,
+                py::object context) {
+                 auto ctx = cpp_context_from_py(context);
                  if (!attributes.is_none()) {
                      PyAttributeIterable attrs(attributes.cast<py::dict>());
-                     self.set(amount, &attrs);
+                     self.set(amount, &attrs, ctx);
                  } else {
-                     self.set(amount);
+                     self.set(amount, nullptr, ctx);
                  }
              },
              py::arg("amount"),
              py::arg("attributes") = py::none(),
+             py::arg("context") = py::none(),
              "Set the gauge to amount. On ABI v1 this is a no-op.");
 
     py::class_<otel_wrapper::ObservableInstrumentWrapper,

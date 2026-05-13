@@ -41,7 +41,9 @@ private:
 class CounterWrapper {
 public:
     explicit CounterWrapper(nostd::unique_ptr<metrics_api::Counter<double>> counter);
-    void add(double value, const opentelemetry::common::KeyValueIterable* attributes = nullptr);
+    void add(double value,
+             const opentelemetry::common::KeyValueIterable* attributes = nullptr,
+             const opentelemetry::context::Context& context = opentelemetry::context::Context{});
 private:
     nostd::unique_ptr<metrics_api::Counter<double>> counter_;
 };
@@ -49,7 +51,9 @@ private:
 class UpDownCounterWrapper {
 public:
     explicit UpDownCounterWrapper(nostd::unique_ptr<metrics_api::UpDownCounter<double>> counter);
-    void add(double value, const opentelemetry::common::KeyValueIterable* attributes = nullptr);
+    void add(double value,
+             const opentelemetry::common::KeyValueIterable* attributes = nullptr,
+             const opentelemetry::context::Context& context = opentelemetry::context::Context{});
 private:
     nostd::unique_ptr<metrics_api::UpDownCounter<double>> counter_;
 };
@@ -57,7 +61,9 @@ private:
 class HistogramWrapper {
 public:
     explicit HistogramWrapper(nostd::unique_ptr<metrics_api::Histogram<double>> histogram);
-    void record(double value, const opentelemetry::common::KeyValueIterable* attributes = nullptr);
+    void record(double value,
+                const opentelemetry::common::KeyValueIterable* attributes = nullptr,
+                const opentelemetry::context::Context& context = opentelemetry::context::Context{});
 private:
     nostd::unique_ptr<metrics_api::Histogram<double>> histogram_;
 };
@@ -67,11 +73,14 @@ class GaugeWrapper {
 public:
 #if OPENTELEMETRY_ABI_VERSION_NO >= 2
     explicit GaugeWrapper(nostd::unique_ptr<metrics_api::Gauge<double>> gauge);
-    void set(double value, const opentelemetry::common::KeyValueIterable* attributes = nullptr);
+    void set(double value,
+             const opentelemetry::common::KeyValueIterable* attributes = nullptr,
+             const opentelemetry::context::Context& context = opentelemetry::context::Context{});
 private:
     nostd::unique_ptr<metrics_api::Gauge<double>> gauge_;
 #else
-    void set(double, const opentelemetry::common::KeyValueIterable* = nullptr) noexcept {}
+    void set(double, const opentelemetry::common::KeyValueIterable* = nullptr,
+             const opentelemetry::context::Context& = opentelemetry::context::Context{}) noexcept {}
 #endif
 };
 

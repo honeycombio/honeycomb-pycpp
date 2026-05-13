@@ -25,12 +25,13 @@ namespace nostd = opentelemetry::nostd;
 CounterWrapper::CounterWrapper(nostd::unique_ptr<metrics_api::Counter<double>> counter)
     : counter_(std::move(counter)) {}
 
-void CounterWrapper::add(double value, const opentelemetry::common::KeyValueIterable* attributes) {
+void CounterWrapper::add(double value, const opentelemetry::common::KeyValueIterable* attributes,
+                         const opentelemetry::context::Context& context) {
     if (!counter_) return;
     if (attributes) {
-        counter_->Add(value, *attributes);
+        counter_->Add(value, *attributes, context);
     } else {
-        counter_->Add(value);
+        counter_->Add(value, context);
     }
 }
 
@@ -43,12 +44,13 @@ UpDownCounterWrapper::UpDownCounterWrapper(
     : counter_(std::move(counter)) {}
 
 void UpDownCounterWrapper::add(double value,
-                               const opentelemetry::common::KeyValueIterable* attributes) {
+                               const opentelemetry::common::KeyValueIterable* attributes,
+                               const opentelemetry::context::Context& context) {
     if (!counter_) return;
     if (attributes) {
-        counter_->Add(value, *attributes);
+        counter_->Add(value, *attributes, context);
     } else {
-        counter_->Add(value);
+        counter_->Add(value, context);
     }
 }
 
@@ -60,14 +62,13 @@ HistogramWrapper::HistogramWrapper(nostd::unique_ptr<metrics_api::Histogram<doub
     : histogram_(std::move(histogram)) {}
 
 void HistogramWrapper::record(double value,
-                              const opentelemetry::common::KeyValueIterable* attributes) {
+                              const opentelemetry::common::KeyValueIterable* attributes,
+                              const opentelemetry::context::Context& context) {
     if (!histogram_) return;
-    // ABI v1: Record(value) and Record(value, attrs) are not available without a context.
-    // Pass an empty context as required by the v1 API.
     if (attributes) {
-        histogram_->Record(value, *attributes, opentelemetry::context::Context{});
+        histogram_->Record(value, *attributes, context);
     } else {
-        histogram_->Record(value, opentelemetry::context::Context{});
+        histogram_->Record(value, context);
     }
 }
 
@@ -79,12 +80,13 @@ void HistogramWrapper::record(double value,
 GaugeWrapper::GaugeWrapper(nostd::unique_ptr<metrics_api::Gauge<double>> gauge)
     : gauge_(std::move(gauge)) {}
 
-void GaugeWrapper::set(double value, const opentelemetry::common::KeyValueIterable* attributes) {
+void GaugeWrapper::set(double value, const opentelemetry::common::KeyValueIterable* attributes,
+                       const opentelemetry::context::Context& context) {
     if (!gauge_) return;
     if (attributes) {
-        gauge_->Record(value, *attributes);
+        gauge_->Record(value, *attributes, context);
     } else {
-        gauge_->Record(value);
+        gauge_->Record(value, context);
     }
 }
 #endif
