@@ -40,7 +40,6 @@ DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel \
 """
 
 [tool.cibuildwheel]
-skip = "*-musllinux_*"
 build-verbosity = 0
 before-build = """
   pip install -r requirements-dev.txt
@@ -67,6 +66,8 @@ before-all = """
     if [ ! -f /usr/bin/cmake ] && [ -f /usr/bin/cmake3 ]; then
       ln -sf /usr/bin/cmake3 /usr/bin/cmake
     fi
+  elif command -v apk &> /dev/null; then
+    apk add --no-cache cmake g++ openssl-dev curl-dev zlib-dev wget autoconf automake libtool yaml-cpp-dev linux-headers
   elif command -v apt-get &> /dev/null; then
     apt-get update
     apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool libyaml-cpp-dev
@@ -142,15 +143,18 @@ before-all = """
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
   # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
-  # On Linux, OTel FetchContent-downloads gRPC which downloads its own protobuf as
-  # a shared lib, but the protoc binary can't find libprotoc.so at build time.
-  # Building static avoids that problem and produces a self-contained extension.
+  # On Linux, OTel FetchContent-downloads gRPC, and without intervention gRPC then
+  # downloads its own copy of protobuf.  With static linking that produces two copies
+  # of protobuf in the same .so, both registering the same descriptors at import time
+  # → fatal "File already exists in database" crash.  Setting gRPC_PROTOBUF_PROVIDER=package
+  # makes gRPC use find_package(Protobuf) instead, pointing at the protobuf we
+  # already built, so only one copy is ever linked.
   if command -v brew &> /dev/null; then
     SHARED_LIBS=ON
     EXTRA_CMAKE_OPTS="-DCMAKE_INSTALL_RPATH=$INSTALLDIR/lib -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DOTELCPP_VERSIONED_LIBS=ON"
   else
     SHARED_LIBS=OFF
-    EXTRA_CMAKE_OPTS=""
+    EXTRA_CMAKE_OPTS="-DgRPC_PROTOBUF_PROVIDER=package -DWITH_STL=ON"
   fi
 
   cmake -B build \
