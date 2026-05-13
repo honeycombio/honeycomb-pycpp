@@ -17,18 +17,14 @@ class OpenTelemetryConfigurator():
     def configure(self, **kwargs):
         """Configure the SDK"""
         config_file = os.getenv("OTEL_CONFIG_FILE", _DEFAULT_CONFIG)
-        tp = otel.TracerProvider(config_file)
-        if tp.configured:
-            trace.set_tracer_provider(tp)
-            atexit.register(tp.shutdown)
-        mp = otel.MeterProvider(config_file)
-        if mp.configured:
-            metrics.set_meter_provider(mp)
-            atexit.register(mp.shutdown)
-        lp = otel.LoggerProvider(config_file)
-        if lp.configured:
-            logs.set_logger_provider(lp)
-            atexit.register(lp.shutdown)
+        sdk = otel.SDK(config_file)
+        if sdk.tracer_configured:
+            trace.set_tracer_provider(sdk.tracer_provider)
+        if sdk.meter_configured:
+            metrics.set_meter_provider(sdk.meter_provider)
+        if sdk.logger_configured:
+            logs.set_logger_provider(sdk.logger_provider)
+        atexit.register(sdk.shutdown)
 
 
 class OpenTelemetryDistro(BaseDistro):

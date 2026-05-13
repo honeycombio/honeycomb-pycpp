@@ -39,6 +39,7 @@ set(SOURCE_FILES
     src/tracer_wrapper.cpp
     src/meter_wrapper.cpp
     src/logger_wrapper.cpp
+    src/sdk_wrapper.cpp
     src/bindings.cpp
 )
 
