@@ -5,6 +5,7 @@
 #### Feature
 
 - feature: add support for configuring TLS settings for OTLP http exporter. (#26) | @codeboten
+- feature: support `context` parameter in metric measurements. (#28) | @codeboten
 
 ## [0.1.10] - 2026-05-13
 
