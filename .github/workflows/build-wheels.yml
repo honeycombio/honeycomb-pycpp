@@ -17,8 +17,42 @@ on:
   workflow_dispatch:
 
 jobs:
+  build_deps:
+    name: Build deps on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15]
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: actions/cache@v5
+        id: deps-cache
+        with:
+          path: .cibw-cache/${{ matrix.os }}
+          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+
+      - name: Build deps
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        uses: pypa/cibuildwheel@v3.4.1
+        env:
+          CIBW_BUILD: "cp313-*"
+          ARCH: ${{ matrix.os }}
+          CPP_VERSION: ${{ env.CPP_VERSION }}
+          CURL_VERSION: ${{ env.CURL_VERSION }}
+          OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
+          PROTO_VERSION: ${{ env.PROTO_VERSION }}
+          JSON_VERSION: ${{ env.JSON_VERSION }}
+          MACOSX_DEPLOYMENT_TARGET: "15.0"
+          PIP_ONLY_BINARY: cmake
+          CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
+
   build_wheels:
     name: Build ${{ matrix.python_version }} wheels on (${{ matrix.os }})
+    needs: [build_deps]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -33,13 +67,13 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .cibw-cache/${{ matrix.os }}
-          key: cibw-${{ matrix.os }}-${{ matrix.python_version }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: ${{ matrix.python_version }}
-          ARCH: /${{ matrix.os }}
+          ARCH: ${{ matrix.os }}
           CPP_VERSION: ${{ env.CPP_VERSION }}
           CURL_VERSION: ${{ env.CURL_VERSION }}
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
