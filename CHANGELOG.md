@@ -6,7 +6,7 @@
 
 #### Fix
 
-- feature: add wrappers for context api methods: `get_value`, `set_value`, `attach`, `detach`. (#) | @codeboten
+- feature: add wrappers for context api methods: `get_value`, `set_value`, `attach`, `detach`. (#24) | @codeboten
 
 ## [0.1.9] - 2026-05-12
 
