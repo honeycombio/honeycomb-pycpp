@@ -24,6 +24,9 @@ The SDK is configured via a YAML file following the [OpenTelemetry Configuration
 | `OTEL_CONFIG_FILE` | Path to a custom configuration YAML. Overrides the embedded default. |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP endpoint (default: `http://localhost:4318`) |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Headers to send with OTLP requests |
+| `OTEL_EXPORTER_OTLP_CERTIFICATE` | Configure certificate used to verify a server's TLS credentials. |
+| `OTEL_EXPORTER_OTLP_CLIENT_KEY` | Configure mTLS client certificate.  |
+| `OTEL_EXPORTER_OTLP_CLIENT_CERTIFICATE` | Configure mTLS private client key. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Comma-separated resource attributes |
 | `OTEL_SERVICE_NAME` | Service name |
 
