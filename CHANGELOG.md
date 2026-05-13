@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.10] - 2026-05-13
+
+#### Fix
+
+- feature: add wrappers for context api methods: `get_value`, `set_value`, `attach`, `detach`. (#) | @codeboten
+
 ## [0.1.9] - 2026-05-12
 
 #### Fix
