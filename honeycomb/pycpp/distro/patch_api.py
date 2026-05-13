@@ -10,15 +10,16 @@ allowing Python instrumentations to work with C++ spans while keeping
 the implementation simple.
 """
 
-import functools
 import threading
 
 try:
     from opentelemetry import trace
-    from opentelemetry.context import context as otel_context
+    import opentelemetry.context as _otel_context_api
+    from opentelemetry.trace.propagation import _SPAN_KEY
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
+    _SPAN_KEY = None
     print("Warning: opentelemetry-api not installed. Monkey patching will have no effect.")
 
 import honeycomb_pycpp
@@ -28,6 +29,10 @@ import honeycomb_pycpp
 _original_implementations = {}
 _patched = False
 _patch_lock = threading.Lock()
+
+# Maps Python context token id -> C++ token, for context.attach/detach bridging
+_token_to_cpp_token = {}
+_token_lock = threading.Lock()
 
 
 def _get_current_span_from_cpp(context=None):
@@ -52,164 +57,109 @@ def _get_current_span_from_cpp(context=None):
     return trace.INVALID_SPAN if OTEL_AVAILABLE else None
 
 
-def _use_span_cpp(span, end_on_exit=False, record_exception=True, set_status_on_exception=True):
+def _context_get_current_cpp():
     """
-    Context manager to make a span active in C++ context.
+    Wraps opentelemetry.context.get_current() to inject the active C++ span.
 
-    This replaces opentelemetry.trace.use_span() to activate spans
-    in the C++ RuntimeContext. Handles both C++ spans and Python
-    OpenTelemetry spans.
-
-    Args:
-        span: The span to activate
-        end_on_exit: Whether to end the span when exiting context
-        record_exception: Whether to record exceptions as events
-        set_status_on_exception: Whether to set ERROR status on exception
+    Without this, code that builds new contexts from get_current() (e.g.
+    set_value calls for baggage) would produce a stale base when a C++ span
+    was activated via start_as_current_span, which bypasses Python's
+    context.attach.
     """
-    class SpanContext:
-        def __init__(self, span, end_on_exit, record_exception, set_status_on_exception):
-            self.span = span
-            self.end_on_exit = end_on_exit
-            self.record_exception = record_exception
-            self.set_status_on_exception = set_status_on_exception
-            self.token = None
-
-        def __enter__(self):
-            # Handle C++ spans (from our bindings)
-            if hasattr(self.span, 'get_context'):
-                ctx = self.span.get_context()
-                self.token = ctx.attach()
-            # Handle Python OpenTelemetry spans
-            elif hasattr(self.span, 'get_span_context'):
-                try:
-                    span_ctx = self.span.get_span_context()
-                    if span_ctx.is_valid:
-                        # Extract trace_id and span_id as hex strings
-                        trace_id_hex = format(span_ctx.trace_id, '032x')
-                        span_id_hex = format(span_ctx.span_id, '016x')
-                        trace_flags = span_ctx.trace_flags
-
-                        # Create C++ context with this span context
-                        ctx = honeycomb_pycpp.Context.create_with_span_context(
-                            trace_id_hex,
-                            span_id_hex,
-                            trace_flags,
-                            is_remote=True
-                        )
-
-                        if ctx:
-                            self.token = ctx.attach()
-                except Exception as e:
-                    print(f"Warning: Failed to bridge Python span to C++ context: {e}")
-                    import traceback
-                    traceback.print_exc()
-
-            return self.span
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            # Detach context
-            if self.token:
-                honeycomb_pycpp.Context.detach(self.token)
-
-            # End span if requested
-            if self.end_on_exit and hasattr(self.span, 'end'):
-                if exc_type is not None:
-                    # Set error status on exception
-                    if hasattr(self.span, 'set_status'):
-                        # Try C++ status first
-                        try:
-                            self.span.set_status(
-                                honeycomb_pycpp.Status(
-                                    honeycomb_pycpp.StatusCode.ERROR,
-                                    f"{exc_type.__name__}: {exc_val}"
-                                )
-                            )
-                        except:
-                            # Fall back to Python status
-                            if OTEL_AVAILABLE:
-                                from opentelemetry.trace import StatusCode
-                                self.span.set_status(StatusCode.ERROR, f"{exc_type.__name__}: {exc_val}")
-
-                self.span.end()
-
-            return False  # Don't suppress exceptions
-
-    return SpanContext(span, end_on_exit, record_exception, set_status_on_exception)
+    ctx = _original_implementations['context_get_current']()
+    try:
+        cpp_span = honeycomb_pycpp.Context.get_current().get_span()
+        if cpp_span and cpp_span.is_recording():
+            ctx = _original_implementations['context_set_value'](_SPAN_KEY, cpp_span, ctx)
+    except Exception:
+        pass
+    return ctx
 
 
-def _wrap_tracer_start_span(original_method):
+def _context_get_value_cpp(key, context=None):
     """
-    Wrap tracer.start_span() to use current C++ context as parent.
-
-    This ensures that Python-created spans automatically become children
-    of active C++ spans.
+    Wraps opentelemetry.context.get_value() to read from a C++-aware current context.
     """
-    @functools.wraps(original_method)
-    def wrapper(self, *args, **kwargs):
-        # If no explicit context/parent provided, inject current C++ context
-        if 'context' not in kwargs or kwargs['context'] is None:
-            try:
-                cpp_context = honeycomb_pycpp.Context.get_current()
-                # Store C++ context in a way the original method might use
-                # This is a best-effort approach for standard Python tracers
-                kwargs['context'] = otel_context.get_current()
-            except:
-                pass
-
-        return original_method(self, *args, **kwargs)
-
-    return wrapper
+    if context is None:
+        context = _context_get_current_cpp()
+    return _original_implementations['context_get_value'](key, context)
 
 
-def _wrap_tracer_start_as_current_span(original_method):
+def _context_set_value_cpp(key, value, context=None):
     """
-    Wrap tracer.start_as_current_span() to use C++ context activation.
+    Wraps opentelemetry.context.set_value() to use a C++-aware base when none is given.
     """
-    @functools.wraps(original_method)
-    def wrapper(self, name, context=None, *args, **kwargs):
-        # Get span from original method
-        span = original_method(self, name, context=context, *args, **kwargs)
+    if context is None:
+        context = _context_get_current_cpp()
+    return _original_implementations['context_set_value'](key, value, context)
 
-        # Wrap it to use C++ context activation
-        class ActivatedSpan:
-            def __init__(self, span):
-                self.span = span
-                self.cpp_token = None
 
-            def __enter__(self):
-                # Activate in C++ context if it's a C++ span
-                if hasattr(self.span, 'get_context'):
-                    try:
-                        ctx = self.span.get_context()
-                        self.cpp_token = ctx.attach()
-                    except:
-                        pass
+def _context_attach_cpp(ctx):
+    """
+    Wraps opentelemetry.context.attach() to mirror the attached span into C++ context.
 
-                # Also call original enter
-                if hasattr(self.span, '__enter__'):
-                    self.span.__enter__()
+    Handles three cases:
+    - C++ recording span (has get_context()): attach via its own context so the
+      recording span itself lands in C++ runtime context, not a non-recording copy.
+      If the span is already the active C++ span (e.g. because get_current() injected
+      it), skip the C++ attach to avoid double-attach.
+    - Python OTel span (has get_span_context() only): bridge via create_with_span_context.
+    - No span / invalid span: no-op on the C++ side.
+    """
+    token = _original_implementations['context_attach'](ctx)
 
-                return self.span
+    try:
+        # Use get_value directly so C++ spans aren't filtered out by the
+        # isinstance(span, Span) check inside the Python get_current_span.
+        span = _original_implementations['context_get_value'](_SPAN_KEY, ctx) if _SPAN_KEY else None
 
-            def __exit__(self, exc_type, exc_val, exc_tb):
-                result = False
+        if span is not None:
+            cpp_ctx = None
+            if hasattr(span, 'get_context'):
+                current_cpp_span = honeycomb_pycpp.Context.get_current().get_span()
+                already_active = (
+                    current_cpp_span is not None
+                    and current_cpp_span.is_recording()
+                    and current_cpp_span.get_span_context().span_id
+                        == span.get_span_context().span_id
+                )
+                if not already_active:
+                    cpp_ctx = span.get_context()
+            elif hasattr(span, 'get_span_context'):
+                span_ctx = span.get_span_context()
+                if span_ctx and span_ctx.is_valid:
+                    cpp_ctx = honeycomb_pycpp.Context.create_with_span_context(
+                        format(span_ctx.trace_id, '032x'),
+                        format(span_ctx.span_id, '016x'),
+                        int(span_ctx.trace_flags),
+                        is_remote=span_ctx.is_remote,
+                    )
 
-                # Call original exit first
-                if hasattr(self.span, '__exit__'):
-                    result = self.span.__exit__(exc_type, exc_val, exc_tb)
+            if cpp_ctx:
+                cpp_token = cpp_ctx.attach()
+                with _token_lock:
+                    _token_to_cpp_token[id(token)] = cpp_token
+    except Exception:
+        pass
 
-                # Detach from C++ context
-                if self.cpp_token:
-                    try:
-                        honeycomb_pycpp.Context.detach(self.cpp_token)
-                    except:
-                        pass
+    return token
 
-                return result
 
-        return ActivatedSpan(span)
+def _context_detach_cpp(token):
+    """
+    Wraps opentelemetry.context.detach() to also detach the mirrored C++ context.
+    """
+    cpp_token = None
+    with _token_lock:
+        cpp_token = _token_to_cpp_token.pop(id(token), None)
 
-    return wrapper
+    if cpp_token is not None:
+        try:
+            honeycomb_pycpp.Context.detach(cpp_token)
+        except Exception:
+            pass
+
+    _original_implementations['context_detach'](token)
 
 
 def patch():
@@ -237,9 +187,24 @@ def patch():
             _original_implementations['get_current_span'] = trace.get_current_span
             trace.get_current_span = _get_current_span_from_cpp
 
-            # Patch use_span
-            _original_implementations['use_span'] = trace.use_span
-            trace.use_span = _use_span_cpp
+            # Patch context.get_current / get_value / set_value so that Python code
+            # which reads or builds from the current context sees the active C++ span,
+            # even when it was activated via start_as_current_span (which bypasses
+            # Python's context.attach).
+            # Save set_value first: _context_get_current_cpp calls it internally.
+            _original_implementations['context_set_value'] = _otel_context_api.set_value
+            _otel_context_api.set_value = _context_set_value_cpp
+            _original_implementations['context_get_value'] = _otel_context_api.get_value
+            _otel_context_api.get_value = _context_get_value_cpp
+            _original_implementations['context_get_current'] = _otel_context_api.get_current
+            _otel_context_api.get_current = _context_get_current_cpp
+
+            # Patch context.attach / context.detach so instrumentations that call
+            # these directly (e.g. gRPC) also propagate spans into C++ context.
+            _original_implementations['context_attach'] = _otel_context_api.attach
+            _otel_context_api.attach = _context_attach_cpp
+            _original_implementations['context_detach'] = _otel_context_api.detach
+            _otel_context_api.detach = _context_detach_cpp
 
             _patched = True
             return True
@@ -268,8 +233,20 @@ def unpatch():
             if 'get_current_span' in _original_implementations:
                 trace.get_current_span = _original_implementations['get_current_span']
 
-            if 'use_span' in _original_implementations:
-                trace.use_span = _original_implementations['use_span']
+            if 'context_get_current' in _original_implementations:
+                _otel_context_api.get_current = _original_implementations['context_get_current']
+
+            if 'context_get_value' in _original_implementations:
+                _otel_context_api.get_value = _original_implementations['context_get_value']
+
+            if 'context_set_value' in _original_implementations:
+                _otel_context_api.set_value = _original_implementations['context_set_value']
+
+            if 'context_attach' in _original_implementations:
+                _otel_context_api.attach = _original_implementations['context_attach']
+
+            if 'context_detach' in _original_implementations:
+                _otel_context_api.detach = _original_implementations['context_detach']
 
             _original_implementations.clear()
             _patched = False
