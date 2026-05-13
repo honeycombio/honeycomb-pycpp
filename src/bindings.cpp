@@ -5,6 +5,7 @@
 #include "tracer_wrapper.h"
 #include "meter_wrapper.h"
 #include "logger_wrapper.h"
+#include "sdk_wrapper.h"
 #include "py_attribute_iterable.h"
 
 namespace py = pybind11;
@@ -970,4 +971,62 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
              "Flush and shut down the logger provider.")
         .def_property_readonly("configured", &otel_wrapper::LoggerProviderWrapper::is_configured,
              "True if a logger provider was built from the config file.");
+
+    // -----------------------------------------------------------------------
+    // SDK — combined single-parse provider
+    // -----------------------------------------------------------------------
+
+    py::class_<otel_wrapper::SDKTracerProvider,
+               std::shared_ptr<otel_wrapper::SDKTracerProvider>>(m, "SDKTracerProvider")
+        .def("get_tracer",
+             &otel_wrapper::SDKTracerProvider::get_tracer,
+             py::arg("name"),
+             py::arg("version")    = py::none(),
+             py::arg("schema_url") = py::none(),
+             "Get a Tracer for the given instrumentation scope.")
+        .def_property_readonly("configured", &otel_wrapper::SDKTracerProvider::is_configured,
+             "True if the tracer provider is configured.");
+
+    py::class_<otel_wrapper::SDKMeterProvider,
+               std::shared_ptr<otel_wrapper::SDKMeterProvider>>(m, "SDKMeterProvider")
+        .def("get_meter",
+             &otel_wrapper::SDKMeterProvider::get_meter,
+             py::arg("name"),
+             py::arg("version")    = py::none(),
+             py::arg("schema_url") = py::none(),
+             py::arg("attributes") = py::none(),
+             "Get a Meter for the given instrumentation scope.")
+        .def_property_readonly("configured", &otel_wrapper::SDKMeterProvider::is_configured,
+             "True if the meter provider is configured.");
+
+    py::class_<otel_wrapper::SDKLoggerProvider,
+               std::shared_ptr<otel_wrapper::SDKLoggerProvider>>(m, "SDKLoggerProvider")
+        .def("get_logger",
+             &otel_wrapper::SDKLoggerProvider::get_logger,
+             py::arg("name"),
+             py::arg("version")    = py::none(),
+             py::arg("schema_url") = py::none(),
+             py::arg("attributes") = py::none(),
+             "Get a Logger for the given instrumentation scope.")
+        .def_property_readonly("configured", &otel_wrapper::SDKLoggerProvider::is_configured,
+             "True if the logger provider is configured.");
+
+    py::class_<otel_wrapper::SDKWrapper>(m, "SDK")
+        .def(py::init<const std::string&>(),
+             py::arg("path"),
+             "Configure all OTel signals from a single YAML file.")
+        .def("shutdown", &otel_wrapper::SDKWrapper::shutdown,
+             "Flush and shut down all configured providers.")
+        .def_property_readonly("tracer_configured", &otel_wrapper::SDKWrapper::tracer_configured,
+             "True if a tracer provider was configured.")
+        .def_property_readonly("meter_configured", &otel_wrapper::SDKWrapper::meter_configured,
+             "True if a meter provider was configured.")
+        .def_property_readonly("logger_configured", &otel_wrapper::SDKWrapper::logger_configured,
+             "True if a logger provider was configured.")
+        .def_property_readonly("tracer_provider", &otel_wrapper::SDKWrapper::tracer_provider,
+             "The SDKTracerProvider, or None if not configured.")
+        .def_property_readonly("meter_provider", &otel_wrapper::SDKWrapper::meter_provider,
+             "The SDKMeterProvider, or None if not configured.")
+        .def_property_readonly("logger_provider", &otel_wrapper::SDKWrapper::logger_provider,
+             "The SDKLoggerProvider, or None if not configured.");
 }
