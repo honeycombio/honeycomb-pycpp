@@ -2,9 +2,13 @@
 
 ## Unreleased
 
+#### Feature
+
+- feature: add support for configuring TLS settings for OTLP http exporter. (#26) | @codeboten
+
 ## [0.1.10] - 2026-05-13
 
-#### Fix
+#### New
 
 - feature: add wrappers for context api methods: `get_value`, `set_value`, `attach`, `detach`. (#24) | @codeboten
 
