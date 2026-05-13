@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.11] - 2026-05-13
+
 #### Feature
 
 - feature: add support for configuring TLS settings for OTLP http exporter. (#26) | @codeboten
