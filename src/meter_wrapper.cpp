@@ -284,6 +284,10 @@ std::shared_ptr<ObservableInstrumentWrapper> MeterWrapper::create_observable_gau
 // MeterProviderWrapper
 // ---------------------------------------------------------------------------
 
+MeterProviderWrapper::MeterProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
+    : sdk_(std::move(sdk)) {}
+
 MeterProviderWrapper::MeterProviderWrapper(const std::string& path) {
     std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
         new opentelemetry::sdk::configuration::Registry);

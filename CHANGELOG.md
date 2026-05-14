@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [0.1.12] - 2026-05-13
+
+#### Fix
+
+- bugfix: sdk wrapper introduced a bug causing incorrect provider instantiation. (#29) | @codeboten
+
 ## [0.1.11] - 2026-05-13
 
 #### Feature

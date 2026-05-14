@@ -30,43 +30,6 @@ namespace metrics_api = opentelemetry::metrics;
 namespace trace_api   = opentelemetry::trace;
 namespace nostd       = opentelemetry::nostd;
 
-// SDKTracerProvider
-
-std::shared_ptr<TracerWrapper> SDKTracerProvider::get_tracer(
-        const std::string& name, py::object version, py::object schema_url) {
-    if (!sdk_ || !sdk_->tracer_provider) return nullptr;
-    auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
-    auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
-    auto tracer = sdk_->tracer_provider->GetTracer(name, ver_str, schema_str);
-    return std::make_shared<TracerWrapper>(tracer);
-}
-
-// SDKMeterProvider
-
-std::shared_ptr<MeterWrapper> SDKMeterProvider::get_meter(
-        const std::string& name, py::object version, py::object schema_url,
-        py::object /*attributes*/) {
-    if (!sdk_ || !sdk_->meter_provider) return nullptr;
-    auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
-    auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
-    auto meter = sdk_->meter_provider->GetMeter(name, ver_str, schema_str);
-    return std::make_shared<MeterWrapper>(meter);
-}
-
-// SDKLoggerProvider
-
-std::shared_ptr<LoggerWrapper> SDKLoggerProvider::get_logger(
-        const std::string& name, py::object version, py::object schema_url,
-        py::object /*attributes*/) {
-    if (!sdk_ || !sdk_->logger_provider) return nullptr;
-    auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
-    auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
-    auto logger = sdk_->logger_provider->GetLogger(name, "", ver_str, schema_str);
-    return std::make_shared<LoggerWrapper>(logger);
-}
-
-// SDKWrapper
-
 SDKWrapper::SDKWrapper(const std::string& path) {
     std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
         new opentelemetry::sdk::configuration::Registry);
@@ -100,19 +63,19 @@ SDKWrapper::SDKWrapper(const std::string& path) {
         auto std_tp = std::static_pointer_cast<trace_api::TracerProvider>(sdk_->tracer_provider);
         nostd::shared_ptr<trace_api::TracerProvider> tp(std_tp);
         trace_api::Provider::SetTracerProvider(tp);
-        tracer_ = std::make_shared<SDKTracerProvider>(sdk_);
+        tracer_ = std::make_shared<TracerProviderWrapper>(sdk_);
     }
     if (sdk_->meter_provider) {
         auto std_mp = std::static_pointer_cast<metrics_api::MeterProvider>(sdk_->meter_provider);
         nostd::shared_ptr<metrics_api::MeterProvider> mp(std_mp);
         metrics_api::Provider::SetMeterProvider(mp);
-        meter_ = std::make_shared<SDKMeterProvider>(sdk_);
+        meter_ = std::make_shared<MeterProviderWrapper>(sdk_);
     }
     if (sdk_->logger_provider) {
         auto std_lp = std::static_pointer_cast<logs_api::LoggerProvider>(sdk_->logger_provider);
         nostd::shared_ptr<logs_api::LoggerProvider> lp(std_lp);
         logs_api::Provider::SetLoggerProvider(lp);
-        logger_ = std::make_shared<SDKLoggerProvider>(sdk_);
+        logger_ = std::make_shared<LoggerProviderWrapper>(sdk_);
     }
 }
 

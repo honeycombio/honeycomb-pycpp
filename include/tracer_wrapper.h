@@ -197,7 +197,8 @@ private:
 
 class TracerProviderWrapper {
 public:
-    TracerProviderWrapper(const std::string& path);
+    explicit TracerProviderWrapper(const std::string& path);
+    explicit TracerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~TracerProviderWrapper();
 
     std::shared_ptr<TracerWrapper> get_tracer(
@@ -211,8 +212,7 @@ public:
     bool is_configured() const { return sdk_ && sdk_->tracer_provider; }
 
 private:
-    std::unique_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
-    std::string service_name_;
+    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
 };
 
 } // namespace otel_wrapper

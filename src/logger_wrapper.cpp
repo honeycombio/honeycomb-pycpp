@@ -113,6 +113,10 @@ void LoggerWrapper::emit(const LogRecordWrapper& rec) {
 // LoggerProviderWrapper
 // ---------------------------------------------------------------------------
 
+LoggerProviderWrapper::LoggerProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
+    : sdk_(std::move(sdk)) {}
+
 LoggerProviderWrapper::LoggerProviderWrapper(const std::string& path) {
     std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
         new opentelemetry::sdk::configuration::Registry);
