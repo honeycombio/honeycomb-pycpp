@@ -21,9 +21,9 @@ from opentelemetry.trace import Link, SpanKind, Status, StatusCode
 
 @pytest.fixture(scope="module")
 def provider():
-    p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
-    yield p
-    p.shutdown()
+    sdk = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml")
+    yield sdk.tracer_provider
+    sdk.shutdown()
 
 
 @pytest.fixture(scope="module")
@@ -36,14 +36,9 @@ def tracer(provider):
 # ===========================================================================
 
 class TestTracerProvider:
-    def test_init_service_name_only(self):
-        """TracerProvider can be created with only a service name."""
-        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
-        p.shutdown()
-
-    def test_init_with_console_exporter(self):
-        """TracerProvider accepts 'console' as exporter_type."""
-        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
+    def test_init(self):
+        """TracerProvider can be created via SDK."""
+        p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").tracer_provider
         p.shutdown()
 
     def test_get_tracer_name_only(self, provider):
@@ -77,9 +72,9 @@ class TestTracerProvider:
         assert t is not None
 
     def test_shutdown(self):
-        """TracerProvider.shutdown() completes without error."""
-        p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
-        p.shutdown()  # should not raise
+        """SDK.shutdown() completes without error."""
+        sdk = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml")
+        sdk.shutdown()  # should not raise
 
 
 # ===========================================================================
@@ -890,16 +885,14 @@ class TestSpanContext:
 
     def test_span_context_trace_flags_has_sampled_false(self):
         from opentelemetry.trace import TraceFlags
-        never_provider = honeycomb_pycpp.TracerProvider(
-            "./tests/testdata/otel_never_sample.yaml"
-        )
-        t = never_provider.get_tracer("never-sampler-tracer")
+        never_sdk = honeycomb_pycpp.SDK("./tests/testdata/otel_never_sample.yaml")
+        t = never_sdk.tracer_provider.get_tracer("never-sampler-tracer")
         span = t.start_span("unsampled")
         sc = span.get_span_context()
         assert isinstance(sc.trace_flags, TraceFlags)
         assert sc.trace_flags.sampled is False
         span.end()
-        never_provider.shutdown()
+        never_sdk.shutdown()
 
     def test_span_context_is_remote_is_bool(self, tracer):
         span = tracer.start_span("sc")

@@ -160,7 +160,6 @@ private:
 
 class MeterProviderWrapper {
 public:
-    explicit MeterProviderWrapper(const std::string& path);
     explicit MeterProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~MeterProviderWrapper();
 

@@ -49,7 +49,6 @@ private:
 
 class LoggerProviderWrapper {
 public:
-    explicit LoggerProviderWrapper(const std::string& path);
     explicit LoggerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~LoggerProviderWrapper();
 

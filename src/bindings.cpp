@@ -550,10 +550,6 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
     // TracerProviderWrapper class
     py::class_<otel_wrapper::TracerProviderWrapper, std::shared_ptr<otel_wrapper::TracerProviderWrapper>>(
         m, "TracerProvider")
-        .def(py::init<const std::string&>(),
-             py::arg("path"),
-             "Create a new tracer provider with the given path to a configuration file.")
-
         .def("get_tracer",
              [](otel_wrapper::TracerProviderWrapper& self,
                 const std::string& name,
@@ -786,10 +782,6 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
 
     py::class_<otel_wrapper::MeterProviderWrapper,
                std::shared_ptr<otel_wrapper::MeterProviderWrapper>>(m, "MeterProvider")
-        .def(py::init<const std::string&>(),
-             py::arg("path"),
-             "Create a MeterProvider from an OTel YAML configuration file.")
-
         .def("get_meter",
              [](otel_wrapper::MeterProviderWrapper& self, const std::string& name,
                 py::object version, py::object schema_url, py::object attributes) {
@@ -989,9 +981,6 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
 
     py::class_<otel_wrapper::LoggerProviderWrapper,
                std::shared_ptr<otel_wrapper::LoggerProviderWrapper>>(m, "LoggerProvider")
-        .def(py::init<const std::string&>(),
-             py::arg("path"),
-             "Create a LoggerProvider from an OTel YAML configuration file.")
         .def("get_logger",
              [](otel_wrapper::LoggerProviderWrapper& self,
                 const std::string& name,

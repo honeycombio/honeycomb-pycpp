@@ -5,10 +5,6 @@
 #include "py_attribute_iterable.h"
 
 #include "opentelemetry/common/timestamp.h"
-#include "opentelemetry/exporters/ostream/console_log_record_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_log_record_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_http_log_record_builder.h"
-#include "opentelemetry/sdk/configuration/yaml_configuration_parser.h"
 
 #include <chrono>
 #include <iostream>
@@ -116,34 +112,6 @@ void LoggerWrapper::emit(const LogRecordWrapper& rec) {
 LoggerProviderWrapper::LoggerProviderWrapper(
         std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
     : sdk_(std::move(sdk)) {}
-
-LoggerProviderWrapper::LoggerProviderWrapper(const std::string& path) {
-    std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
-        new opentelemetry::sdk::configuration::Registry);
-
-    opentelemetry::exporter::logs::ConsoleLogRecordBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpHttpLogRecordBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpGrpcLogRecordBuilder::Register(registry.get());
-
-    auto model = opentelemetry::sdk::configuration::YamlConfigurationParser::ParseFile(path);
-    if (!model) throw std::runtime_error("Failed to parse config: " + path);
-
-    // Keep logger_provider; null out the other signals so ConfiguredSdk doesn't
-    // attempt to build them without the corresponding exporters registered.
-    model->tracer_provider = nullptr;
-    model->meter_provider  = nullptr;
-
-    sdk_ = opentelemetry::sdk::configuration::ConfiguredSdk::Create(registry, model);
-    if (!sdk_) throw std::runtime_error("Unsupported configuration: " + path);
-
-    sdk_->Install();
-
-    if (sdk_->logger_provider) {
-        auto std_lp = std::static_pointer_cast<logs_api::LoggerProvider>(sdk_->logger_provider);
-        nostd::shared_ptr<logs_api::LoggerProvider> lp(std_lp);
-        logs_api::Provider::SetLoggerProvider(lp);
-    }
-}
 
 LoggerProviderWrapper::~LoggerProviderWrapper() {
     shutdown();
