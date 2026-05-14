@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+#### Maintenance
+
+- maint: remove unnecessary constructors. (#30) | @codeboten
+
 ## [0.1.12] - 2026-05-13
 
 #### Fix
