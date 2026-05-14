@@ -25,8 +25,6 @@ find_package(CURL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(c-ares CONFIG)
-find_package(re2 CONFIG)
 
 # Include directories
 include_directories(
@@ -82,15 +80,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenSSL::SSL
     OpenSSL::Crypto
 )
-
-# Link against c-ares and re2 if found
-if(TARGET c-ares::cares)
-    target_link_libraries(${PROJECT_NAME} PRIVATE c-ares::cares)
-endif()
-
-if(TARGET re2::re2)
-    target_link_libraries(${PROJECT_NAME} PRIVATE re2::re2)
-endif()
 
 # Set compile options
 target_compile_options(${PROJECT_NAME} PRIVATE
