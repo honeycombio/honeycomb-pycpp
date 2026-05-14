@@ -33,7 +33,7 @@ jobs:
         id: deps-cache
         with:
           path: .cibw-cache/${{ matrix.os }}
-          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
 
       - name: Build deps
         if: steps.deps-cache.outputs.cache-hit != 'true'
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: .cibw-cache/${{ matrix.os }}
-          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v4
+          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
