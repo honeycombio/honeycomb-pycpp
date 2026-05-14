@@ -4,7 +4,7 @@
 
 #### Maintenance
 
-- maint: remove unnecessary constructors. (#30) | @codeboten
+- maint: remove unnecessary constructors. (#31) | @codeboten
 
 ## [0.1.12] - 2026-05-13
 
