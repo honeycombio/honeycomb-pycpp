@@ -17,7 +17,8 @@ set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
 set(Python_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
 set(Python_VERSION ${PYTHON_VERSION_STRING})
 
-option(WITH_OTLP_GRPC "Build with OTLP gRPC exporter support" ON)
+option(WITH_OTLP_HTTP "Build with OTLP HTTP exporter support" ON)
+option(WITH_OTLP_GRPC "Build with OTLP gRPC exporter support" OFF)
 
 # Find OpenTelemetry C++
 find_package(opentelemetry-cpp CONFIG REQUIRED)
@@ -53,9 +54,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::trace
     opentelemetry-cpp::common
     opentelemetry-cpp::configuration
-    opentelemetry-cpp::otlp_builder_utils
-    opentelemetry-cpp::otlp_http_exporter
-    opentelemetry-cpp::otlp_http_exporter_builder
+    $<$<OR:$<BOOL:${WITH_OTLP_HTTP}>,$<BOOL:${WITH_OTLP_GRPC}>>:opentelemetry-cpp::otlp_builder_utils>
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_exporter>
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_exporter_builder>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter_builder>
     opentelemetry-cpp::ostream_span_exporter
@@ -63,15 +64,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::metrics
     opentelemetry-cpp::ostream_metrics_exporter
     opentelemetry-cpp::ostream_metrics_exporter_builder
-    opentelemetry-cpp::otlp_http_metric_exporter
-    opentelemetry-cpp::otlp_http_metric_exporter_builder
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_metric_exporter>
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_metric_exporter_builder>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metrics_exporter>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metric_exporter_builder>
     opentelemetry-cpp::logs
     opentelemetry-cpp::ostream_log_record_exporter
     opentelemetry-cpp::ostream_log_record_exporter_builder
-    opentelemetry-cpp::otlp_http_log_record_exporter
-    opentelemetry-cpp::otlp_http_log_record_exporter_builder
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_log_record_exporter>
+    $<$<BOOL:${WITH_OTLP_HTTP}>:opentelemetry-cpp::otlp_http_log_record_exporter_builder>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter_builder>
     opentelemetry-cpp::resources
@@ -83,6 +84,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenSSL::Crypto
 )
 
+if(WITH_OTLP_HTTP)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_OTLP_HTTP)
+endif()
 if(WITH_OTLP_GRPC)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_OTLP_GRPC)
 endif()
