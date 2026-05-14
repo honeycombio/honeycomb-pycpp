@@ -485,6 +485,10 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
 }
 
 // TracerProviderWrapper Implementation
+TracerProviderWrapper::TracerProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
+    : sdk_(std::move(sdk)) {}
+
 TracerProviderWrapper::TracerProviderWrapper(const std::string& path) {
     std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
       new opentelemetry::sdk::configuration::Registry);

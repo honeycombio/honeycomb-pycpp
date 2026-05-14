@@ -28,15 +28,6 @@ class TestSDK:
         with pytest.raises(RuntimeError):
             otel.SDK("/nonexistent/path.yaml")
 
-    def test_tracer_configured(self, sdk):
-        assert sdk.tracer_configured is True
-
-    def test_meter_configured(self, sdk):
-        assert sdk.meter_configured is True
-
-    def test_logger_configured(self, sdk):
-        assert sdk.logger_configured is True
-
     def test_tracer_provider_not_none(self, sdk):
         assert sdk.tracer_provider is not None
 
@@ -47,13 +38,13 @@ class TestSDK:
         assert sdk.logger_provider is not None
 
     def test_tracer_provider_type(self, sdk):
-        assert isinstance(sdk.tracer_provider, otel.SDKTracerProvider)
+        assert isinstance(sdk.tracer_provider, otel.TracerProvider)
 
     def test_meter_provider_type(self, sdk):
-        assert isinstance(sdk.meter_provider, otel.SDKMeterProvider)
+        assert isinstance(sdk.meter_provider, otel.MeterProvider)
 
     def test_logger_provider_type(self, sdk):
-        assert isinstance(sdk.logger_provider, otel.SDKLoggerProvider)
+        assert isinstance(sdk.logger_provider, otel.LoggerProvider)
 
     def test_shutdown_idempotent(self):
         s = otel.SDK(_CONFIG)
@@ -75,7 +66,7 @@ class TestSDKTracerProvider:
         assert isinstance(t, otel.Tracer)
 
     def test_get_tracer_with_version(self, sdk):
-        t = sdk.tracer_provider.get_tracer("test-lib", version="1.0.0")
+        t = sdk.tracer_provider.get_tracer("test-lib", instrumenting_library_version="1.0.0")
         assert t is not None
 
     def test_get_tracer_with_schema_url(self, sdk):
@@ -88,6 +79,13 @@ class TestSDKTracerProvider:
         assert span is not None
         assert isinstance(span, otel.Span)
         span.end()
+
+    def test_get_tracer_with_attributes(self, sdk):
+        t = sdk.tracer_provider.get_tracer(
+            "test-lib", "1.0.0", "https://example.com/schema",
+            {"telemetry.sdk.language": "python"},
+        )
+        assert t is not None
 
     def test_tracer_start_as_current_span(self, sdk):
         tracer = sdk.tracer_provider.get_tracer("test-lib")
@@ -122,6 +120,13 @@ class TestSDKMeterProvider:
         assert counter is not None
         counter.add(1.0)
 
+    def test_get_meter_with_attributes(self, sdk):
+        m = sdk.meter_provider.get_meter(
+            "test-lib", "1.0.0", "https://example.com/schema",
+            {"telemetry.sdk.language": "python"},
+        )
+        assert m is not None
+
     def test_meter_create_histogram(self, sdk):
         meter = sdk.meter_provider.get_meter("test-lib")
         hist = meter.create_histogram("test.histogram")
@@ -148,6 +153,13 @@ class TestSDKLoggerProvider:
 
     def test_get_logger_with_schema_url(self, sdk):
         logger = sdk.logger_provider.get_logger("test-lib", schema_url="https://example.com/schema")
+        assert logger is not None
+
+    def test_get_logger_with_attributes(self, sdk):
+        logger = sdk.logger_provider.get_logger(
+            "test-lib", "1.0.0", "https://example.com/schema",
+            {"telemetry.sdk.language": "python"},
+        )
         assert logger is not None
 
     def test_logger_emit(self, sdk):

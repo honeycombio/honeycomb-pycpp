@@ -50,6 +50,7 @@ private:
 class LoggerProviderWrapper {
 public:
     explicit LoggerProviderWrapper(const std::string& path);
+    explicit LoggerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~LoggerProviderWrapper();
 
     std::shared_ptr<LoggerWrapper> get_logger(
@@ -62,7 +63,7 @@ public:
     bool is_configured() const { return sdk_ && sdk_->logger_provider; }
 
 private:
-    std::unique_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
+    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
 };
 
 }  // namespace otel_wrapper

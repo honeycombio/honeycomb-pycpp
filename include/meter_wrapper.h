@@ -161,6 +161,7 @@ private:
 class MeterProviderWrapper {
 public:
     explicit MeterProviderWrapper(const std::string& path);
+    explicit MeterProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~MeterProviderWrapper();
 
     std::shared_ptr<MeterWrapper> get_meter(
@@ -173,7 +174,7 @@ public:
     bool is_configured() const { return sdk_ && sdk_->meter_provider; }
 
 private:
-    std::unique_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
+    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
 };
 
 }  // namespace otel_wrapper
