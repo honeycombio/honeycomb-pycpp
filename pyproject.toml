@@ -71,9 +71,7 @@ before-all = """
     apt-get update
     apt-get install -y cmake g++ libssl-dev libcurl4-openssl-dev zlib1g-dev wget autoconf automake libtool libyaml-cpp-dev
   elif command -v brew &> /dev/null; then
-    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp grpc
-    OPENSSL_OPTS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
-    CURL_OPTS="-DCURL_ROOT_DIR=$(brew --prefix curl)"
+    brew install cmake openssl curl wget autoconf automake libtool yaml-cpp
     CURL_SSL_OPTS="--with-openssl=$(brew --prefix openssl)"
   fi
 
@@ -141,16 +139,13 @@ before-all = """
   tar -xzf v$CPP_VERSION.tar.gz
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
-  # On macOS, brew supplies gRPC/protobuf as shared libs so shared OTel libs work.
-  # On Linux, OTel FetchContent-downloads gRPC which downloads its own protobuf as
-  # a shared lib, but the protoc binary can't find libprotoc.so at build time.
-  # Building static avoids that problem and produces a self-contained extension.
+  # Build static on all platforms. On Linux, FetchContent gRPC fails at link time when
+  # protoc can't find libprotoc.so; static avoids that. On macOS, static eliminates
+  # delocate having to bundle 100+ gRPC/abseil/boringssl dylibs (~20 min per wheel).
+  SHARED_LIBS=OFF
+  EXTRA_CMAKE_OPTS=""
   if command -v brew &> /dev/null; then
-    SHARED_LIBS=ON
-    EXTRA_CMAKE_OPTS="-DCMAKE_INSTALL_RPATH=$INSTALLDIR/lib -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON -DOTELCPP_VERSIONED_LIBS=ON"
-  else
-    SHARED_LIBS=OFF
-    EXTRA_CMAKE_OPTS=""
+    EXTRA_CMAKE_OPTS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
   fi
 
   cmake -B build \
