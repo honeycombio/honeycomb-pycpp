@@ -152,6 +152,12 @@ If neither variable is set and both distros are installed, the one selected is n
 
 ## Current limitations
 
+- **OTLP gRPC exporter not included in published wheels.** Only OTLP HTTP (`otlp_http`) and console exporters are bundled. Use `http/protobuf` as your OTLP protocol. To build with gRPC support, install gRPC and its dependencies, then build from source with `WITH_OTLP_GRPC=ON`:
+
+  ```bash
+  WITH_OTLP_GRPC=ON pip install -e .
+  ```
+
 - OpenTelemetry C++ ABI v2 not yet enabled, any features relying on it (i.e. links) are not supported
 
 ## Building from source
@@ -176,6 +182,18 @@ To clean up cmake artifacts:
 ```bash
 rm -rf CMakeCache.txt CMakeFiles/ cmake_install.cmake build/ dist/ *.egg-info/ *.so
 ```
+
+### Shared vs static libraries
+
+Published wheels link the OpenTelemetry C++ core libraries dynamically. When multiple worker processes load the same `.so`, the OS shares the OTel code pages — reducing per-process memory overhead in multi-worker deployments (e.g. gunicorn, uWSGI).
+
+To build with static libraries instead (suitable for single-process or embedded deployments):
+
+```bash
+WITH_SHARED_LIBS=OFF pip install -e .
+```
+
+Note: the OTLP HTTP exporter builder libraries are always linked statically regardless of this flag.
 
 ## License
 

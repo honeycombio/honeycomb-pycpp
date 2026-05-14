@@ -5,16 +5,22 @@
 
 // Trace exporters
 #include "opentelemetry/exporters/ostream/console_span_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_span_builder.h"
 #include "opentelemetry/exporters/otlp/otlp_http_span_builder.h"
+#ifdef WITH_OTLP_GRPC
+#include "opentelemetry/exporters/otlp/otlp_grpc_span_builder.h"
+#endif
 // Metrics exporters
 #include "opentelemetry/exporters/ostream/console_push_metric_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_push_metric_builder.h"
 #include "opentelemetry/exporters/otlp/otlp_http_push_metric_builder.h"
+#ifdef WITH_OTLP_GRPC
+#include "opentelemetry/exporters/otlp/otlp_grpc_push_metric_builder.h"
+#endif
 // Log exporters
 #include "opentelemetry/exporters/ostream/console_log_record_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_log_record_builder.h"
 #include "opentelemetry/exporters/otlp/otlp_http_log_record_builder.h"
+#ifdef WITH_OTLP_GRPC
+#include "opentelemetry/exporters/otlp/otlp_grpc_log_record_builder.h"
+#endif
 
 #include "opentelemetry/sdk/configuration/always_on_sampler_configuration.h"
 #include "opentelemetry/sdk/configuration/parent_based_sampler_configuration.h"
@@ -36,13 +42,15 @@ SDKWrapper::SDKWrapper(const std::string& path) {
 
     opentelemetry::exporter::trace::ConsoleSpanBuilder::Register(registry.get());
     opentelemetry::exporter::otlp::OtlpHttpSpanBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpGrpcSpanBuilder::Register(registry.get());
     opentelemetry::exporter::metrics::ConsolePushMetricBuilder::Register(registry.get());
     opentelemetry::exporter::otlp::OtlpHttpPushMetricBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpGrpcPushMetricBuilder::Register(registry.get());
     opentelemetry::exporter::logs::ConsoleLogRecordBuilder::Register(registry.get());
     opentelemetry::exporter::otlp::OtlpHttpLogRecordBuilder::Register(registry.get());
+#ifdef WITH_OTLP_GRPC
+    opentelemetry::exporter::otlp::OtlpGrpcSpanBuilder::Register(registry.get());
+    opentelemetry::exporter::otlp::OtlpGrpcPushMetricBuilder::Register(registry.get());
     opentelemetry::exporter::otlp::OtlpGrpcLogRecordBuilder::Register(registry.get());
+#endif
 
     auto model = opentelemetry::sdk::configuration::YamlConfigurationParser::ParseFile(path);
     if (!model) throw std::runtime_error("Failed to parse config: " + path);

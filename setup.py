@@ -38,6 +38,7 @@ class CMakeBuild(build_ext):
             f"-DPython_ROOT_DIR={sys.prefix}",
             f"-DPython_INCLUDE_DIR={python_include_dir}",
             f"-DCMAKE_BUILD_TYPE={cfg}",
+            f"-DWITH_OTLP_GRPC={os.environ.get('WITH_OTLP_GRPC', 'ON')}",
         ]
 
         build_args = []

@@ -45,7 +45,7 @@ build-verbosity = 0
 before-build = """
   pip install -r requirements-dev.txt
 """
-environment-pass = ["ARCH", "CPP_VERSION", "CURL_VERSION", "OTEL_PROTO_VERSION", "PROTO_VERSION", "JSON_VERSION", "MACOSX_DEPLOYMENT_TARGET", "PIP_ONLY_BINARY"]
+environment-pass = ["ARCH", "CPP_VERSION", "CURL_VERSION", "OTEL_PROTO_VERSION", "PROTO_VERSION", "JSON_VERSION", "MACOSX_DEPLOYMENT_TARGET", "PIP_ONLY_BINARY", "WITH_OTLP_GRPC", "WITH_SHARED_LIBS"]
 test-command = "python -c 'import honeycomb_pycpp; print(\"Import successful\")'"
 before-all = """
   set -ex
@@ -84,7 +84,8 @@ before-all = """
   else
     CACHE="$HOME/.cibw-cache/$ARCH"
   fi
-  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION"
+  SHARED_LIBS=${WITH_SHARED_LIBS:-ON}
+  STAMP="$CACHE/.built-curl-$CURL_VERSION-protobuf-$PROTO_VERSION-json-$JSON_VERSION-otel-$CPP_VERSION-shared-$SHARED_LIBS"
 
   if [ -f "$STAMP" ]; then
     echo "Cache hit for $ARCH — restoring deps"
@@ -139,10 +140,12 @@ before-all = """
   tar -xzf v$CPP_VERSION.tar.gz
   cd /tmp/opentelemetry-cpp-$CPP_VERSION
 
-  # Build static on all platforms. On Linux, FetchContent gRPC fails at link time when
-  # protoc can't find libprotoc.so; static avoids that. On macOS, static eliminates
-  # delocate having to bundle 100+ gRPC/abseil/boringssl dylibs (~20 min per wheel).
-  SHARED_LIBS=OFF
+  # WITH_SHARED_LIBS defaults ON: OTel core dylibs are shared between worker processes.
+  # Set WITH_SHARED_LIBS=OFF to build everything statically (e.g. single-process or
+  # embedded deployments). Note: OTLP HTTP exporter builder libs are always static
+  # regardless of this flag — OTel overrides BUILD_SHARED_LIBS for them to avoid
+  # protobuf ABI issues. delocate/auditwheel bundle the OTel dylibs into the wheel.
+  WITH_GRPC=${WITH_OTLP_GRPC:-OFF}
   EXTRA_CMAKE_OPTS=""
   if command -v brew &> /dev/null; then
     EXTRA_CMAKE_OPTS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl)"
@@ -154,7 +157,7 @@ before-all = """
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
     -DOTELCPP_PROTO_PATH=/tmp/opentelemetry-proto-$OTEL_PROTO_VERSION \
     -DWITH_OTLP_HTTP=ON \
-    -DWITH_OTLP_GRPC=ON \
+    -DWITH_OTLP_GRPC=$WITH_GRPC \
     -DBUILD_TESTING=OFF \
     -DWITH_EXAMPLES=OFF \
     -DWITH_BENCHMARK=OFF \
