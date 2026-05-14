@@ -4,12 +4,6 @@
 #include "meter_wrapper.h"
 #include "py_attribute_iterable.h"
 
-#include "opentelemetry/exporters/ostream/console_push_metric_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_push_metric_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_http_push_metric_builder.h"
-#include "opentelemetry/metrics/provider.h"
-#include "opentelemetry/sdk/configuration/yaml_configuration_parser.h"
-
 #include <pybind11/pybind11.h>
 #include <iostream>
 
@@ -287,34 +281,6 @@ std::shared_ptr<ObservableInstrumentWrapper> MeterWrapper::create_observable_gau
 MeterProviderWrapper::MeterProviderWrapper(
         std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
     : sdk_(std::move(sdk)) {}
-
-MeterProviderWrapper::MeterProviderWrapper(const std::string& path) {
-    std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
-        new opentelemetry::sdk::configuration::Registry);
-
-    opentelemetry::exporter::metrics::ConsolePushMetricBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpHttpPushMetricBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpGrpcPushMetricBuilder::Register(registry.get());
-
-    auto model = opentelemetry::sdk::configuration::YamlConfigurationParser::ParseFile(path);
-    if (!model) throw std::runtime_error("Failed to parse config: " + path);
-
-    // Keep meter_provider; null out the other signals so ConfiguredSdk doesn't
-    // attempt to build them without the corresponding exporters registered.
-    model->tracer_provider  = nullptr;
-    model->logger_provider  = nullptr;
-
-    sdk_ = opentelemetry::sdk::configuration::ConfiguredSdk::Create(registry, model);
-    if (!sdk_) throw std::runtime_error("Unsupported configuration: " + path);
-
-    sdk_->Install();
-
-    if (sdk_->meter_provider) {
-        auto std_mp = std::static_pointer_cast<metrics_api::MeterProvider>(sdk_->meter_provider);
-        nostd::shared_ptr<metrics_api::MeterProvider> mp(std_mp);
-        metrics_api::Provider::SetMeterProvider(mp);
-    }
-}
 
 MeterProviderWrapper::~MeterProviderWrapper() {
     shutdown();

@@ -24,9 +24,9 @@ SPAN_ID_HEX = format(SPAN_ID, "016x")
 
 @pytest.fixture(scope="module")
 def provider():
-    p = honeycomb_pycpp.TracerProvider("./tests/testdata/otel.yaml")
-    yield p
-    p.shutdown()
+    sdk = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml")
+    yield sdk.tracer_provider
+    sdk.shutdown()
 
 
 @pytest.fixture(scope="module")
