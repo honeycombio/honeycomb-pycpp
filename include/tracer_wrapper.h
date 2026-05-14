@@ -197,7 +197,6 @@ private:
 
 class TracerProviderWrapper {
 public:
-    explicit TracerProviderWrapper(const std::string& path);
     explicit TracerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
     ~TracerProviderWrapper();
 

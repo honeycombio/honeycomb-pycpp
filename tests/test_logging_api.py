@@ -20,7 +20,7 @@ import honeycomb_pycpp
 
 @pytest.fixture(scope="module")
 def provider():
-    p = honeycomb_pycpp.LoggerProvider("./tests/testdata/otel.yaml")
+    p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").logger_provider
     yield p
     p.shutdown()
 
@@ -36,7 +36,7 @@ def logger(provider):
 
 class TestLoggerProvider:
     def test_init(self):
-        p = honeycomb_pycpp.LoggerProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").logger_provider
         p.shutdown()
 
     def test_get_logger_name_only(self, provider):
@@ -65,7 +65,7 @@ class TestLoggerProvider:
         assert lg is not None
 
     def test_shutdown(self):
-        p = honeycomb_pycpp.LoggerProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").logger_provider
         p.shutdown()
 
 

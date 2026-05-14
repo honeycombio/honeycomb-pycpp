@@ -1,21 +1,5 @@
 #include "tracer_wrapper.h"
 
-#include "opentelemetry/exporters/ostream/span_exporter.h"
-#include "opentelemetry/exporters/ostream/console_span_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_grpc_span_builder.h"
-#include "opentelemetry/exporters/otlp/otlp_http_exporter.h"
-#include "opentelemetry/exporters/otlp/otlp_http_span_builder.h"
-#include "opentelemetry/sdk/configuration/yaml_configuration_parser.h"
-#include "opentelemetry/sdk/configuration/configuration.h"
-#include "opentelemetry/sdk/configuration/configured_sdk.h"
-#include "opentelemetry/sdk/configuration/always_on_sampler_configuration.h"
-#include "opentelemetry/sdk/configuration/parent_based_sampler_configuration.h"
-#include "opentelemetry/sdk/trace/tracer_provider.h"
-#include "opentelemetry/sdk/trace/simple_processor.h"
-#include "opentelemetry/sdk/trace/batch_span_processor.h"
-#include "opentelemetry/sdk/trace/tracer_provider_factory.h"
-#include "opentelemetry/sdk/resource/resource.h"
-#include "opentelemetry/semconv/service_attributes.h"
 #include "opentelemetry/trace/span_startoptions.h"
 #include "opentelemetry/trace/scope.h"
 #include "opentelemetry/trace/context.h"
@@ -488,45 +472,6 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
 TracerProviderWrapper::TracerProviderWrapper(
         std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
     : sdk_(std::move(sdk)) {}
-
-TracerProviderWrapper::TracerProviderWrapper(const std::string& path) {
-    std::shared_ptr<opentelemetry::sdk::configuration::Registry> registry(
-      new opentelemetry::sdk::configuration::Registry);
-
-    opentelemetry::exporter::trace::ConsoleSpanBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpHttpSpanBuilder::Register(registry.get());
-    opentelemetry::exporter::otlp::OtlpGrpcSpanBuilder::Register(registry.get());
-    // TODO: add metrics/logs exporter support
-    // opentelemetry::exporter::otlp::OtlpHttpPushMetricBuilder::Register(registry.get());
-    // opentelemetry::exporter::otlp::OtlpHttpLogRecordBuilder::Register(registry.get());
-
-    auto model = opentelemetry::sdk::configuration::YamlConfigurationParser::ParseFile(path);
-    if (!model) throw std::runtime_error("Failed to parse config: " + path);
-
-    // Metrics and log exporters are not registered yet; clear these sections
-    // from the model so ConfiguredSdk::Create doesn't try to build them and crash.
-    model->meter_provider = nullptr;
-    model->logger_provider = nullptr;
-
-    // set a default sampler here
-    if (model->tracer_provider && !model->tracer_provider->sampler) {
-        auto root = std::make_unique<opentelemetry::sdk::configuration::AlwaysOnSamplerConfiguration>();
-        auto parent_based = std::make_unique<opentelemetry::sdk::configuration::ParentBasedSamplerConfiguration>();
-        parent_based->root = std::move(root);
-        model->tracer_provider->sampler = std::move(parent_based);
-    }
-
-    sdk_ = opentelemetry::sdk::configuration::ConfiguredSdk::Create(registry, model);
-    if (!sdk_) throw std::runtime_error("Unsupported configuration: " + path);
-
-    if (sdk_ != nullptr && model->tracer_provider)
-    {
-        sdk_->Install();
-        // Set as global provider
-        std::shared_ptr<trace_api::TracerProvider> api_provider = sdk_->tracer_provider;
-        trace_api::Provider::SetTracerProvider(api_provider);
-    }
-}
 
 TracerProviderWrapper::~TracerProviderWrapper() {
     shutdown();

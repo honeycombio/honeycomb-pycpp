@@ -20,7 +20,7 @@ import opentelemetry.context as otel_context
 
 @pytest.fixture(scope="module")
 def provider():
-    p = honeycomb_pycpp.MeterProvider("./tests/testdata/otel.yaml")
+    p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").meter_provider
     yield p
     p.shutdown()
 
@@ -36,7 +36,7 @@ def meter(provider):
 
 class TestMeterProvider:
     def test_init(self):
-        p = honeycomb_pycpp.MeterProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").meter_provider
         p.shutdown()
 
     def test_get_meter_name_only(self, provider):
@@ -65,7 +65,7 @@ class TestMeterProvider:
         assert m is not None
 
     def test_shutdown(self):
-        p = honeycomb_pycpp.MeterProvider("./tests/testdata/otel.yaml")
+        p = honeycomb_pycpp.SDK("./tests/testdata/otel.yaml").meter_provider
         p.shutdown()
 
 
