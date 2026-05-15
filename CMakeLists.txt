@@ -17,6 +17,8 @@ set(Python_EXECUTABLE ${PYTHON_EXECUTABLE})
 set(Python_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
 set(Python_VERSION ${PYTHON_VERSION_STRING})
 
+option(WITH_OTLP_GRPC "Build with OTLP gRPC exporter support" ON)
+
 # Find OpenTelemetry C++
 find_package(opentelemetry-cpp CONFIG REQUIRED)
 
@@ -54,8 +56,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::otlp_builder_utils
     opentelemetry-cpp::otlp_http_exporter
     opentelemetry-cpp::otlp_http_exporter_builder
-    opentelemetry-cpp::otlp_grpc_exporter
-    opentelemetry-cpp::otlp_grpc_exporter_builder
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter>
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter_builder>
     opentelemetry-cpp::ostream_span_exporter
     opentelemetry-cpp::ostream_span_exporter_builder
     opentelemetry-cpp::metrics
@@ -63,15 +65,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::ostream_metrics_exporter_builder
     opentelemetry-cpp::otlp_http_metric_exporter
     opentelemetry-cpp::otlp_http_metric_exporter_builder
-    opentelemetry-cpp::otlp_grpc_metrics_exporter
-    opentelemetry-cpp::otlp_grpc_metric_exporter_builder
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metrics_exporter>
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metric_exporter_builder>
     opentelemetry-cpp::logs
     opentelemetry-cpp::ostream_log_record_exporter
     opentelemetry-cpp::ostream_log_record_exporter_builder
     opentelemetry-cpp::otlp_http_log_record_exporter
     opentelemetry-cpp::otlp_http_log_record_exporter_builder
-    opentelemetry-cpp::otlp_grpc_log_record_exporter
-    opentelemetry-cpp::otlp_grpc_log_record_exporter_builder
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter>
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter_builder>
     opentelemetry-cpp::resources
     opentelemetry-cpp::version
     CURL::libcurl
@@ -81,12 +83,23 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     OpenSSL::Crypto
 )
 
+if(WITH_OTLP_GRPC)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_OTLP_GRPC)
+endif()
+
 # Set compile options
 target_compile_options(${PROJECT_NAME} PRIVATE
     -Wall
     -Wextra
     $<$<CONFIG:Debug>:-g>
     $<$<CONFIG:Release>:-O3>
+    -ffunction-sections
+    -fdata-sections
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE
+    $<$<PLATFORM_ID:Linux>:-Wl,--gc-sections>
+    $<$<PLATFORM_ID:Darwin>:-Wl,-dead_strip>
 )
 
 # Set module properties

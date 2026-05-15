@@ -6,6 +6,10 @@
 
 - maint: remove unnecessary constructors. (#31) | @codeboten
 
+#### Change
+
+- change: don't include grpc in the initial package. (#32) | @codeboten
+
 ## [0.1.12] - 2026-05-13
 
 #### Fix
