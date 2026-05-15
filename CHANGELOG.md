@@ -1,6 +1,6 @@
 # honeycomb-pycpp changelog
 
-## Unreleased
+## [0.1.13] - 2026-05-15
 
 #### Maintenance
 
