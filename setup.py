@@ -9,16 +9,6 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 
 
-def _package_name() -> str:
-    http = os.environ.get("WITH_OTLP_HTTP", "ON").upper() == "ON"
-    grpc = os.environ.get("WITH_OTLP_GRPC", "OFF").upper() == "ON"
-    if http and grpc:
-        return "honeycomb-pycpp"
-    if grpc:
-        return "honeycomb-pycpp-otlp-grpc"
-    return "honeycomb-pycpp-otlp-http"
-
-
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=""):
         Extension.__init__(self, name, sources=[])
@@ -85,7 +75,6 @@ class CMakeBuild(build_ext):
 
 
 setup(
-    name=_package_name(),
     ext_modules=[CMakeExtension("honeycomb_pycpp")],
     cmdclass={"build_ext": CMakeBuild},
 )

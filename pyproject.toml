@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 authors = [
   {name = "Honeycomb Authors", email = "support@honeycomb.io"},
 ]
-dynamic = ["name"]
+name = "honeycomb-pycpp"
 version = "0.1.13"
 description = "Honeycomb OpenTelemetry distro which embeds the C++ SDK"
 readme = "README.md"
@@ -44,6 +44,7 @@ skip = "*-musllinux_*"
 build-verbosity = 0
 before-build = """
   pip install -r requirements-dev.txt
+  python .github/workflows/scripts/set_package_name.py
 """
 environment-pass = ["ARCH", "CPP_VERSION", "CURL_VERSION", "OTEL_PROTO_VERSION", "PROTO_VERSION", "JSON_VERSION", "MACOSX_DEPLOYMENT_TARGET", "PIP_ONLY_BINARY", "WITH_OTLP_HTTP", "WITH_OTLP_GRPC", "WITH_SHARED_LIBS"]
 test-command = "python -c 'import honeycomb_pycpp; print(\"Import successful\")'"
