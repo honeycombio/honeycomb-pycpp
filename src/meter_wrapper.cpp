@@ -279,8 +279,8 @@ std::shared_ptr<ObservableInstrumentWrapper> MeterWrapper::create_observable_gau
 // ---------------------------------------------------------------------------
 
 MeterProviderWrapper::MeterProviderWrapper(
-        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
-    : sdk_(std::move(sdk)) {}
+        std::shared_ptr<opentelemetry::sdk::metrics::MeterProvider> provider)
+    : provider_(std::move(provider)) {}
 
 MeterProviderWrapper::~MeterProviderWrapper() {
     shutdown();
@@ -290,22 +290,21 @@ std::shared_ptr<MeterWrapper> MeterProviderWrapper::get_meter(const std::string&
                                                                py::object version,
                                                                py::object schema_url,
                                                                py::object attributes) {
-    if (!sdk_ || !sdk_->meter_provider) return nullptr;
+    if (!provider_) return nullptr;
 
     auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
     auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
-
-    // Attributes are accepted for API compatibility but not forwarded (no ABI v1 support).
     (void)attributes;
 
-    auto meter = sdk_->meter_provider->GetMeter(name, ver_str, schema_str);
+    auto meter = provider_->GetMeter(name, ver_str, schema_str);
     return std::make_shared<MeterWrapper>(meter);
 }
 
 void MeterProviderWrapper::shutdown() {
-    if (sdk_) {
-        sdk_->UnInstall();
-        sdk_.reset();
+    if (provider_) {
+        provider_->ForceFlush();
+        provider_->Shutdown();
+        provider_.reset();
     }
 }
 

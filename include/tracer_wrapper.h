@@ -14,10 +14,6 @@
 #include "opentelemetry/trace/scope.h"
 #include "opentelemetry/context/context.h"
 #include "opentelemetry/sdk/trace/tracer_provider.h"
-#include "opentelemetry/sdk/trace/simple_processor.h"
-#include "opentelemetry/sdk/trace/batch_span_processor.h"
-#include "opentelemetry/sdk/configuration/configuration.h"
-#include "opentelemetry/sdk/configuration/configured_sdk.h"
 
 namespace py = pybind11;
 namespace otel_wrapper {
@@ -197,7 +193,8 @@ private:
 
 class TracerProviderWrapper {
 public:
-    explicit TracerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
+    explicit TracerProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::trace::TracerProvider> provider);
     ~TracerProviderWrapper();
 
     std::shared_ptr<TracerWrapper> get_tracer(
@@ -208,10 +205,14 @@ public:
         TracerProviderWrapper* provider = nullptr);
 
     void shutdown();
-    bool is_configured() const { return sdk_ && sdk_->tracer_provider; }
+    bool is_configured() const { return provider_ != nullptr; }
+
+    std::shared_ptr<opentelemetry::sdk::trace::TracerProvider> sdk_provider() const {
+        return provider_;
+    }
 
 private:
-    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
+    std::shared_ptr<opentelemetry::sdk::trace::TracerProvider> provider_;
 };
 
 } // namespace otel_wrapper

@@ -19,8 +19,7 @@
 #include "opentelemetry/metrics/observer_result.h"
 #include "opentelemetry/nostd/shared_ptr.h"
 #include "opentelemetry/nostd/unique_ptr.h"
-#include "opentelemetry/sdk/configuration/configuration.h"
-#include "opentelemetry/sdk/configuration/configured_sdk.h"
+#include "opentelemetry/sdk/metrics/meter_provider.h"
 
 namespace py = pybind11;
 
@@ -160,7 +159,8 @@ private:
 
 class MeterProviderWrapper {
 public:
-    explicit MeterProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
+    explicit MeterProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::metrics::MeterProvider> provider);
     ~MeterProviderWrapper();
 
     std::shared_ptr<MeterWrapper> get_meter(
@@ -170,10 +170,10 @@ public:
         py::object attributes = py::none());
 
     void shutdown();
-    bool is_configured() const { return sdk_ && sdk_->meter_provider; }
+    bool is_configured() const { return provider_ != nullptr; }
 
 private:
-    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
+    std::shared_ptr<opentelemetry::sdk::metrics::MeterProvider> provider_;
 };
 
 }  // namespace otel_wrapper

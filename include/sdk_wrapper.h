@@ -26,6 +26,7 @@ public:
     ~SDKWrapper();
 
     void shutdown();
+    void release_config();
 
     std::shared_ptr<TracerProviderWrapper> tracer_provider() const { return tracer_; }
     std::shared_ptr<MeterProviderWrapper>  meter_provider()  const { return meter_;  }

@@ -110,8 +110,8 @@ void LoggerWrapper::emit(const LogRecordWrapper& rec) {
 // ---------------------------------------------------------------------------
 
 LoggerProviderWrapper::LoggerProviderWrapper(
-        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
-    : sdk_(std::move(sdk)) {}
+        std::shared_ptr<opentelemetry::sdk::logs::LoggerProvider> provider)
+    : provider_(std::move(provider)) {}
 
 LoggerProviderWrapper::~LoggerProviderWrapper() {
     shutdown();
@@ -121,22 +121,21 @@ std::shared_ptr<LoggerWrapper> LoggerProviderWrapper::get_logger(const std::stri
                                                                   py::object version,
                                                                   py::object schema_url,
                                                                   py::object attributes) {
-    if (!sdk_ || !sdk_->logger_provider) return nullptr;
+    if (!provider_) return nullptr;
 
     auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
     auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
-
-    // Attributes accepted for API compatibility but not forwarded (no v1 support).
     (void)attributes;
 
-    auto logger = sdk_->logger_provider->GetLogger(name, "", ver_str, schema_str);
+    auto logger = provider_->GetLogger(name, "", ver_str, schema_str);
     return std::make_shared<LoggerWrapper>(logger);
 }
 
 void LoggerProviderWrapper::shutdown() {
-    if (sdk_) {
-        sdk_->UnInstall();
-        sdk_.reset();
+    if (provider_) {
+        provider_->ForceFlush();
+        provider_->Shutdown();
+        provider_.reset();
     }
 }
 

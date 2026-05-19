@@ -14,8 +14,7 @@
 #include "opentelemetry/logs/provider.h"
 #include "opentelemetry/logs/severity.h"
 #include "opentelemetry/nostd/shared_ptr.h"
-#include "opentelemetry/sdk/configuration/configuration.h"
-#include "opentelemetry/sdk/configuration/configured_sdk.h"
+#include "opentelemetry/sdk/logs/logger_provider.h"
 
 namespace py = pybind11;
 
@@ -49,7 +48,8 @@ private:
 
 class LoggerProviderWrapper {
 public:
-    explicit LoggerProviderWrapper(std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk);
+    explicit LoggerProviderWrapper(
+        std::shared_ptr<opentelemetry::sdk::logs::LoggerProvider> provider);
     ~LoggerProviderWrapper();
 
     std::shared_ptr<LoggerWrapper> get_logger(
@@ -59,10 +59,10 @@ public:
         py::object attributes = py::none());
 
     void shutdown();
-    bool is_configured() const { return sdk_ && sdk_->logger_provider; }
+    bool is_configured() const { return provider_ != nullptr; }
 
 private:
-    std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk_;
+    std::shared_ptr<opentelemetry::sdk::logs::LoggerProvider> provider_;
 };
 
 }  // namespace otel_wrapper

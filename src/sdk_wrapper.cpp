@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "sdk_wrapper.h"
+#include "opentelemetry/logs/noop.h"
+#include "opentelemetry/metrics/noop.h"
+#include "opentelemetry/trace/noop.h"
 
 // Trace exporters
 #include "opentelemetry/exporters/ostream/console_span_builder.h"
@@ -71,19 +74,19 @@ SDKWrapper::SDKWrapper(const std::string& path) {
         auto std_tp = std::static_pointer_cast<trace_api::TracerProvider>(sdk_->tracer_provider);
         nostd::shared_ptr<trace_api::TracerProvider> tp(std_tp);
         trace_api::Provider::SetTracerProvider(tp);
-        tracer_ = std::make_shared<TracerProviderWrapper>(sdk_);
+        tracer_ = std::make_shared<TracerProviderWrapper>(sdk_->tracer_provider);
     }
     if (sdk_->meter_provider) {
         auto std_mp = std::static_pointer_cast<metrics_api::MeterProvider>(sdk_->meter_provider);
         nostd::shared_ptr<metrics_api::MeterProvider> mp(std_mp);
         metrics_api::Provider::SetMeterProvider(mp);
-        meter_ = std::make_shared<MeterProviderWrapper>(sdk_);
+        meter_ = std::make_shared<MeterProviderWrapper>(sdk_->meter_provider);
     }
     if (sdk_->logger_provider) {
         auto std_lp = std::static_pointer_cast<logs_api::LoggerProvider>(sdk_->logger_provider);
         nostd::shared_ptr<logs_api::LoggerProvider> lp(std_lp);
         logs_api::Provider::SetLoggerProvider(lp);
-        logger_ = std::make_shared<LoggerProviderWrapper>(sdk_);
+        logger_ = std::make_shared<LoggerProviderWrapper>(sdk_->logger_provider);
     }
 }
 
@@ -91,11 +94,28 @@ SDKWrapper::~SDKWrapper() {
     shutdown();
 }
 
+void SDKWrapper::release_config() {
+    sdk_.reset();
+}
+
 void SDKWrapper::shutdown() {
     if (sdk_) {
         sdk_->UnInstall();
         sdk_.reset();
+    } else {
+        if (tracer_) tracer_->shutdown();
+        if (meter_) meter_->shutdown();
+        if (logger_) logger_->shutdown();
+        trace_api::Provider::SetTracerProvider(
+            nostd::shared_ptr<trace_api::TracerProvider>(new trace_api::NoopTracerProvider()));
+        metrics_api::Provider::SetMeterProvider(
+            nostd::shared_ptr<metrics_api::MeterProvider>(new metrics_api::NoopMeterProvider()));
+        logs_api::Provider::SetLoggerProvider(
+            nostd::shared_ptr<logs_api::LoggerProvider>(new logs_api::NoopLoggerProvider()));
     }
+    tracer_.reset();
+    meter_.reset();
+    logger_.reset();
 }
 
 } // namespace otel_wrapper

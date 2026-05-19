@@ -470,8 +470,8 @@ std::shared_ptr<SpanWrapper> TracerWrapper::start_as_current_span(
 
 // TracerProviderWrapper Implementation
 TracerProviderWrapper::TracerProviderWrapper(
-        std::shared_ptr<opentelemetry::sdk::configuration::ConfiguredSdk> sdk)
-    : sdk_(std::move(sdk)) {}
+        std::shared_ptr<opentelemetry::sdk::trace::TracerProvider> provider)
+    : provider_(std::move(provider)) {}
 
 TracerProviderWrapper::~TracerProviderWrapper() {
     shutdown();
@@ -484,26 +484,22 @@ std::shared_ptr<TracerWrapper> TracerProviderWrapper::get_tracer(
     const opentelemetry::common::KeyValueIterable* attributes,
     TracerProviderWrapper* provider) {
 
-    // Use the provided provider or fall back to this instance's provider
-    auto target_provider = (provider && provider->sdk_->tracer_provider) ? provider->sdk_->tracer_provider : sdk_->tracer_provider;
+    auto target = (provider && provider->sdk_provider()) ? provider->sdk_provider() : provider_;
+    if (!target) return nullptr;
 
-    if (!target_provider) return nullptr;
+    auto ver_str    = version.is_none()    ? "" : version.cast<std::string>();
+    auto schema_str = schema_url.is_none() ? "" : schema_url.cast<std::string>();
+    (void)attributes;
 
-    auto ver_str = (!version.is_none()) ? version.cast<std::string>() : "";
-    auto schema_str = (!schema_url.is_none()) ? schema_url.cast<std::string>() : "";
-
-    // TODO: Apply attributes to the InstrumentationScope when creating the tracer
-    // For now, attributes are accepted but not used (requires OpenTelemetry C++ ABI v2 or manual Tracer construction)
-    (void)attributes;  // Suppress unused parameter warning
-
-    auto tracer = target_provider->GetTracer(name, ver_str, schema_str);
+    auto tracer = target->GetTracer(name, ver_str, schema_str);
     return std::make_shared<TracerWrapper>(tracer);
 }
 
 void TracerProviderWrapper::shutdown() {
-    if (sdk_ != nullptr) {
-        sdk_->UnInstall();
-        sdk_.reset();
+    if (provider_) {
+        provider_->ForceFlush();
+        provider_->Shutdown();
+        provider_.reset();
     }
 }
 

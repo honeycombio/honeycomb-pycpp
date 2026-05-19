@@ -165,3 +165,75 @@ class TestSDKLoggerProvider:
     def test_logger_emit(self, sdk):
         logger = sdk.logger_provider.get_logger("test-lib")
         logger.emit(body="hello from SDK test", severity_number=otel.SeverityNumber.INFO)
+
+
+# ===========================================================================
+# release_config
+# ===========================================================================
+
+class TestReleaseConfig:
+    """
+    release_config() drops the ConfiguredSdk (model + registry) while keeping
+    the signal providers running. Tests verify that providers remain usable and
+    that both the normal and post-release shutdown paths are safe.
+    """
+
+    def test_providers_still_configured(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        assert s.tracer_provider.configured
+        assert s.meter_provider.configured
+        assert s.logger_provider.configured
+        s.shutdown()
+
+    def test_tracer_works_after_release(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        tracer = s.tracer_provider.get_tracer("test")
+        span = tracer.start_span("release-span")
+        assert span is not None
+        span.end()
+        s.shutdown()
+
+    def test_meter_works_after_release(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        meter = s.meter_provider.get_meter("test")
+        counter = meter.create_counter("release.counter")
+        counter.add(1.0)
+        s.shutdown()
+
+    def test_logger_works_after_release(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        logger = s.logger_provider.get_logger("test")
+        logger.emit(body="after release", severity_number=otel.SeverityNumber.INFO)
+        s.shutdown()
+
+    def test_release_is_idempotent(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        s.release_config()
+        s.shutdown()
+
+    def test_shutdown_after_release(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        s.shutdown()
+
+    def test_shutdown_idempotent_after_release(self):
+        s = otel.SDK(_CONFIG)
+        s.release_config()
+        s.shutdown()
+        s.shutdown()
+
+    def test_providers_unconfigured_after_shutdown(self):
+        s = otel.SDK(_CONFIG)
+        tp = s.tracer_provider
+        mp = s.meter_provider
+        lp = s.logger_provider
+        s.release_config()
+        s.shutdown()
+        assert not tp.configured
+        assert not mp.configured
+        assert not lp.configured
