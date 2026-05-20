@@ -18,11 +18,15 @@ on:
 
 jobs:
   build_deps:
-    name: Build deps on ${{ matrix.os }}
+    name: Build deps (${{ matrix.variant.name }}) on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15]
+        variant:
+          - {name: http,     WITH_OTLP_HTTP: "ON",  WITH_OTLP_GRPC: "OFF"}
+          - {name: grpc,     WITH_OTLP_HTTP: "OFF", WITH_OTLP_GRPC: "ON"}
+          - {name: combined, WITH_OTLP_HTTP: "ON",  WITH_OTLP_GRPC: "ON"}
 
     steps:
       - uses: actions/checkout@v6
@@ -32,15 +36,15 @@ jobs:
       - uses: actions/cache@v5
         id: deps-cache
         with:
-          path: .cibw-cache/${{ matrix.os }}
-          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
+          path: .cibw-cache/${{ matrix.os }}-${{ matrix.variant.name }}
+          key: cibw-deps-${{ matrix.os }}-${{ matrix.variant.name }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
 
       - name: Build deps
         if: steps.deps-cache.outputs.cache-hit != 'true'
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: "cp313-*"
-          ARCH: ${{ matrix.os }}
+          ARCH: ${{ matrix.os }}-${{ matrix.variant.name }}
           CPP_VERSION: ${{ env.CPP_VERSION }}
           CURL_VERSION: ${{ env.CURL_VERSION }}
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
@@ -48,16 +52,22 @@ jobs:
           JSON_VERSION: ${{ env.JSON_VERSION }}
           MACOSX_DEPLOYMENT_TARGET: "15.0"
           PIP_ONLY_BINARY: cmake
+          WITH_OTLP_HTTP: ${{ matrix.variant.WITH_OTLP_HTTP }}
+          WITH_OTLP_GRPC: ${{ matrix.variant.WITH_OTLP_GRPC }}
           CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
 
   build_wheels:
-    name: Build ${{ matrix.python_version }} wheels on (${{ matrix.os }})
+    name: Build ${{ matrix.python_version }} wheels (${{ matrix.variant.name }}) on ${{ matrix.os }}
     needs: [build_deps]
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         python_version: ["cp310-*", "cp311-*", "cp312-*", "cp313-*", "cp314-*"]
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-15-intel, macos-15]
+        variant:
+          - {name: http,     WITH_OTLP_HTTP: "ON",  WITH_OTLP_GRPC: "OFF"}
+          - {name: grpc,     WITH_OTLP_HTTP: "OFF", WITH_OTLP_GRPC: "ON"}
+          - {name: combined, WITH_OTLP_HTTP: "ON",  WITH_OTLP_GRPC: "ON"}
 
     steps:
       - uses: actions/checkout@v6
@@ -66,14 +76,14 @@ jobs:
 
       - uses: actions/cache@v5
         with:
-          path: .cibw-cache/${{ matrix.os }}
-          key: cibw-deps-${{ matrix.os }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
+          path: .cibw-cache/${{ matrix.os }}-${{ matrix.variant.name }}
+          key: cibw-deps-${{ matrix.os }}-${{ matrix.variant.name }}-curl-${{ env.CURL_VERSION }}-protobuf-${{ env.PROTO_VERSION }}-json-${{ env.JSON_VERSION }}-otel-${{ env.CPP_VERSION }}-v5
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.4.1
         env:
           CIBW_BUILD: ${{ matrix.python_version }}
-          ARCH: ${{ matrix.os }}
+          ARCH: ${{ matrix.os }}-${{ matrix.variant.name }}
           CPP_VERSION: ${{ env.CPP_VERSION }}
           CURL_VERSION: ${{ env.CURL_VERSION }}
           OTEL_PROTO_VERSION: ${{ env.OTEL_PROTO_VERSION }}
@@ -81,53 +91,65 @@ jobs:
           JSON_VERSION: ${{ env.JSON_VERSION }}
           MACOSX_DEPLOYMENT_TARGET: "15.0"
           PIP_ONLY_BINARY: cmake
+          WITH_OTLP_HTTP: ${{ matrix.variant.WITH_OTLP_HTTP }}
+          WITH_OTLP_GRPC: ${{ matrix.variant.WITH_OTLP_GRPC }}
           CIBW_CONTAINER_ENGINE: "docker; create_args: -v ${{ github.workspace }}/.cibw-cache:/cibw-cache:rw"
 
       - name: Upload wheels as artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-${{ matrix.os }}-${{ strategy.job-index }}
+          name: wheels-${{ matrix.os }}-${{ matrix.variant.name }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
           if-no-files-found: error
 
   merge_wheels:
-    name: Merge wheel artifacts
+    name: Merge ${{ matrix.variant }} wheel artifacts
     needs: [build_wheels]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        variant: [http, grpc, combined]
+
     steps:
-      - name: Download all artifacts
+      - name: Download ${{ matrix.variant }} artifacts
         uses: actions/download-artifact@v8
         with:
           path: all-wheels
-          pattern: wheels-*
+          pattern: wheels-*-${{ matrix.variant }}-*
           merge-multiple: true
 
-      - name: Upload merged wheels
+      - name: Upload merged ${{ matrix.variant }} wheels
         uses: actions/upload-artifact@v7
         with:
-          name: all-wheels
+          name: all-wheels-${{ matrix.variant }}
           path: all-wheels/*.whl
           if-no-files-found: error
 
-      - name: List wheels
+      - name: List ${{ matrix.variant }} wheels
         run: ls -lh all-wheels/
 
   publish:
-    name: Publish to PyPI
+    name: Publish ${{ matrix.variant.pkg }} to PyPI
     needs: [merge_wheels]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
+    strategy:
+      matrix:
+        variant:
+          - {name: http,     pkg: honeycomb-pycpp-otlp-http}
+          - {name: grpc,     pkg: honeycomb-pycpp-otlp-grpc}
+          - {name: combined, pkg: honeycomb-pycpp}
     environment:
-      name: pypi
-      url: https://pypi.org/p/honeycomb-pycpp
+      name: pypi-${{ matrix.variant.name }}
+      url: https://pypi.org/p/${{ matrix.variant.pkg }}
     permissions:
       id-token: write  # required for trusted publishing
     steps:
-      - name: Download wheels
-        uses: actions/download-artifact@v7
+      - name: Download ${{ matrix.variant.name }} wheels
+        uses: actions/download-artifact@v8
         with:
-          name: all-wheels
           path: dist/
+          name: all-wheels-${{ matrix.variant.name }}
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
