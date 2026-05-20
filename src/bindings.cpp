@@ -1009,6 +1009,9 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
              "Configure all OTel signals from a single YAML file.")
         .def("shutdown", &otel_wrapper::SDKWrapper::shutdown,
              "Flush and shut down all configured providers.")
+        .def("release_config", &otel_wrapper::SDKWrapper::release_config,
+             "Free the config scaffolding (model + registry) while keeping providers running. "
+             "Call shutdown() later to stop the providers.")
         .def_property_readonly("tracer_provider", &otel_wrapper::SDKWrapper::tracer_provider,
              "The TracerProvider, or None if not configured.")
         .def_property_readonly("meter_provider", &otel_wrapper::SDKWrapper::meter_provider,

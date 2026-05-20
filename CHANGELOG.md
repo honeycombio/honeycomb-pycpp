@@ -1,5 +1,11 @@
 # honeycomb-pycpp changelog
 
+## Unreleased
+
+#### Change
+
+- change: add a method to the SDK wrapper to release the configuration objects. (#33) | @codeboten
+
 ## [0.1.13] - 2026-05-15
 
 #### Maintenance

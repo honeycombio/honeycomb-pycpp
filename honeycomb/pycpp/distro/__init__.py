@@ -25,6 +25,7 @@ class OpenTelemetryConfigurator():
         if sdk.logger_provider is not None:
             logs.set_logger_provider(sdk.logger_provider)
         atexit.register(sdk.shutdown)
+        sdk.release_config()
 
 
 class OpenTelemetryDistro(BaseDistro):
