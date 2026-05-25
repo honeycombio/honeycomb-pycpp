@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.1.14] - 2026-05-25
+
 #### Change
 
 - change: add a method to the SDK wrapper to release the configuration objects. (#33) | @codeboten
