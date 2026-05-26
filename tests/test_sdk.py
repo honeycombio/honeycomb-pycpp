@@ -3,14 +3,19 @@
 
 import pytest
 import honeycomb_pycpp as otel
+from honeycomb.pycpp.distro._config import load_config
 
 
 _CONFIG = "./tests/testdata/otel.yaml"
 
 
+def _make_sdk():
+    return otel.SDK(load_config(_CONFIG))
+
+
 @pytest.fixture(scope="module")
 def sdk():
-    s = otel.SDK(_CONFIG)
+    s = _make_sdk()
     yield s
     s.shutdown()
 
@@ -21,12 +26,12 @@ def sdk():
 
 class TestSDK:
     def test_init(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.shutdown()
 
     def test_bad_path_raises(self):
-        with pytest.raises(RuntimeError):
-            otel.SDK("/nonexistent/path.yaml")
+        with pytest.raises((FileNotFoundError, OSError)):
+            load_config("/nonexistent/path.yaml")
 
     def test_tracer_provider_not_none(self, sdk):
         assert sdk.tracer_provider is not None
@@ -47,7 +52,7 @@ class TestSDK:
         assert isinstance(sdk.logger_provider, otel.LoggerProvider)
 
     def test_shutdown_idempotent(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.shutdown()
         s.shutdown()
 
@@ -179,7 +184,7 @@ class TestReleaseConfig:
     """
 
     def test_providers_still_configured(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         assert s.tracer_provider.configured
         assert s.meter_provider.configured
@@ -187,7 +192,7 @@ class TestReleaseConfig:
         s.shutdown()
 
     def test_tracer_works_after_release(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         tracer = s.tracer_provider.get_tracer("test")
         span = tracer.start_span("release-span")
@@ -196,7 +201,7 @@ class TestReleaseConfig:
         s.shutdown()
 
     def test_meter_works_after_release(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         meter = s.meter_provider.get_meter("test")
         counter = meter.create_counter("release.counter")
@@ -204,31 +209,31 @@ class TestReleaseConfig:
         s.shutdown()
 
     def test_logger_works_after_release(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         logger = s.logger_provider.get_logger("test")
         logger.emit(body="after release", severity_number=otel.SeverityNumber.INFO)
         s.shutdown()
 
     def test_release_is_idempotent(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         s.release_config()
         s.shutdown()
 
     def test_shutdown_after_release(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         s.shutdown()
 
     def test_shutdown_idempotent_after_release(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         s.release_config()
         s.shutdown()
         s.shutdown()
 
     def test_providers_unconfigured_after_shutdown(self):
-        s = otel.SDK(_CONFIG)
+        s = _make_sdk()
         tp = s.tracer_provider
         mp = s.meter_provider
         lp = s.logger_provider

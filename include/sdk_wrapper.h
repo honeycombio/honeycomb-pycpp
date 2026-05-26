@@ -7,22 +7,36 @@
 #include "meter_wrapper.h"
 #include "logger_wrapper.h"
 
+#ifdef WITH_YAML_SDK_CONFIG
 #include "opentelemetry/sdk/configuration/configured_sdk.h"
+#endif
 
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace otel_wrapper {
 
-using ConfiguredSdk = opentelemetry::sdk::configuration::ConfiguredSdk;
+struct OtlpSignalConfig {
+    std::string endpoint;
+    std::vector<std::pair<std::string, std::string>> headers;
+    std::string ca_file, key_file, cert_file;
+};
 
-/**
- * Configures all three OTel signals from a single YAML file in one
- * ConfiguredSdk::Create call and exposes a provider view for each signal.
- */
+struct ProgrammaticConfig {
+    std::vector<std::pair<std::string, std::string>> resource_attributes;
+    OtlpSignalConfig traces, metrics, logs;
+    int metric_interval_ms = 60000;
+    int metric_timeout_ms  = 30000;
+};
+
 class SDKWrapper {
 public:
+#ifdef WITH_YAML_SDK_CONFIG
     explicit SDKWrapper(const std::string& path);
+#endif
+    explicit SDKWrapper(const ProgrammaticConfig& config);
     ~SDKWrapper();
 
     void shutdown();
@@ -33,7 +47,9 @@ public:
     std::shared_ptr<LoggerProviderWrapper> logger_provider() const { return logger_; }
 
 private:
-    std::shared_ptr<ConfiguredSdk>         sdk_;
+#ifdef WITH_YAML_SDK_CONFIG
+    std::shared_ptr<void> sdk_;  // ConfiguredSdk, type-erased
+#endif
     std::shared_ptr<TracerProviderWrapper> tracer_;
     std::shared_ptr<MeterProviderWrapper>  meter_;
     std::shared_ptr<LoggerProviderWrapper> logger_;
