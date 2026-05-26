@@ -170,6 +170,16 @@ before-all = """
   cmake --build build -j2
   cmake --install build
 
+  # Strip local symbols from OTel shared libs — reduces symbol table bloat
+  # (DWARF debug info is absent in Release builds; this removes the local
+  # symbol table entries that the linker generated but aren't needed at runtime)
+  if command -v brew &> /dev/null; then
+    find "$INSTALLDIR/lib" -name "libopentelemetry_*.dylib" -exec strip -x {} \\; 2>/dev/null || true
+  else
+    find "$INSTALLDIR/lib" \\( -name "libopentelemetry_*.so" -o -name "libopentelemetry_*.so.*" \\) \\
+      ! -type l -exec strip --strip-unneeded {} \\; 2>/dev/null || true
+  fi
+
   # Save compiled artifacts to cache
   mkdir -p "$CACHE/usr"
   (cd "$INSTALLDIR" && tar -cf - .) | (cd "$CACHE/usr" && tar -xf -)
