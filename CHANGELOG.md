@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+#### Change
+
+- maint: strip local symbols in shared libraries after compilation. (#) | @codeboten
+
 ## [0.1.14] - 2026-05-25
 
 #### Change
