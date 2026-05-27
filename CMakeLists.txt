@@ -18,6 +18,7 @@ set(Python_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
 set(Python_VERSION ${PYTHON_VERSION_STRING})
 
 option(WITH_OTLP_GRPC "Build with OTLP gRPC exporter support" ON)
+option(WITH_YAML_SDK_CONFIG "Build with YAML-based SDK configuration (requires libopentelemetry_configuration)" OFF)
 
 # Find OpenTelemetry C++
 find_package(opentelemetry-cpp CONFIG REQUIRED)
@@ -52,30 +53,31 @@ pybind11_add_module(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME} PRIVATE
     opentelemetry-cpp::trace
     opentelemetry-cpp::common
-    opentelemetry-cpp::configuration
-    opentelemetry-cpp::otlp_builder_utils
     opentelemetry-cpp::otlp_http_exporter
-    opentelemetry-cpp::otlp_http_exporter_builder
-    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter>
-    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter_builder>
-    opentelemetry-cpp::ostream_span_exporter
-    opentelemetry-cpp::ostream_span_exporter_builder
-    opentelemetry-cpp::metrics
-    opentelemetry-cpp::ostream_metrics_exporter
-    opentelemetry-cpp::ostream_metrics_exporter_builder
     opentelemetry-cpp::otlp_http_metric_exporter
-    opentelemetry-cpp::otlp_http_metric_exporter_builder
-    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metrics_exporter>
-    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metric_exporter_builder>
-    opentelemetry-cpp::logs
-    opentelemetry-cpp::ostream_log_record_exporter
-    opentelemetry-cpp::ostream_log_record_exporter_builder
     opentelemetry-cpp::otlp_http_log_record_exporter
-    opentelemetry-cpp::otlp_http_log_record_exporter_builder
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_exporter>
+    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_metrics_exporter>
     $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter>
-    $<$<BOOL:${WITH_OTLP_GRPC}>:opentelemetry-cpp::otlp_grpc_log_record_exporter_builder>
+    opentelemetry-cpp::metrics
+    opentelemetry-cpp::logs
     opentelemetry-cpp::resources
     opentelemetry-cpp::version
+    # YAML-based SDK configuration (optional)
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::configuration>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::otlp_builder_utils>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::otlp_http_exporter_builder>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::otlp_http_metric_exporter_builder>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::otlp_http_log_record_exporter_builder>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_span_exporter>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_span_exporter_builder>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_metrics_exporter>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_metrics_exporter_builder>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_log_record_exporter>
+    $<$<BOOL:${WITH_YAML_SDK_CONFIG}>:opentelemetry-cpp::ostream_log_record_exporter_builder>
+    $<$<AND:$<BOOL:${WITH_YAML_SDK_CONFIG}>,$<BOOL:${WITH_OTLP_GRPC}>>:opentelemetry-cpp::otlp_grpc_exporter_builder>
+    $<$<AND:$<BOOL:${WITH_YAML_SDK_CONFIG}>,$<BOOL:${WITH_OTLP_GRPC}>>:opentelemetry-cpp::otlp_grpc_metric_exporter_builder>
+    $<$<AND:$<BOOL:${WITH_YAML_SDK_CONFIG}>,$<BOOL:${WITH_OTLP_GRPC}>>:opentelemetry-cpp::otlp_grpc_log_record_exporter_builder>
     CURL::libcurl
     nlohmann_json::nlohmann_json
     ZLIB::ZLIB
@@ -85,6 +87,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 if(WITH_OTLP_GRPC)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_OTLP_GRPC)
+endif()
+
+if(WITH_YAML_SDK_CONFIG)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE WITH_YAML_SDK_CONFIG)
 endif()
 
 # Set compile options

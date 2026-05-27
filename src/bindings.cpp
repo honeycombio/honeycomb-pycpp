@@ -1068,9 +1068,53 @@ def _span_cm_fn(cm):
     // -----------------------------------------------------------------------
 
     py::class_<otel_wrapper::SDKWrapper>(m, "SDK")
+#ifdef WITH_YAML_SDK_CONFIG
         .def(py::init<const std::string&>(),
              py::arg("path"),
              "Configure all OTel signals from a single YAML file.")
+#endif
+        .def(py::init([](py::dict cfg) {
+                otel_wrapper::ProgrammaticConfig c;
+
+                auto str_val = [](py::dict d, const char* key) -> std::string {
+                    if (!d.contains(key)) return "";
+                    auto v = d[key];
+                    return v.is_none() ? "" : v.cast<std::string>();
+                };
+                auto pairs_val = [](py::dict d, const char* key)
+                        -> std::vector<std::pair<std::string, std::string>> {
+                    std::vector<std::pair<std::string, std::string>> out;
+                    if (!d.contains(key) || d[key].is_none()) return out;
+                    for (auto item : d[key].cast<py::list>()) {
+                        auto t = item.cast<py::tuple>();
+                        out.emplace_back(t[0].cast<std::string>(), t[1].cast<std::string>());
+                    }
+                    return out;
+                };
+                auto extract_signal = [&](const char* key) -> otel_wrapper::OtlpSignalConfig {
+                    otel_wrapper::OtlpSignalConfig s;
+                    if (!cfg.contains(key) || cfg[key].is_none()) return s;
+                    auto d = cfg[key].cast<py::dict>();
+                    s.endpoint = str_val(d, "endpoint");
+                    s.headers  = pairs_val(d, "headers");
+                    s.ca_file  = str_val(d, "ca_file");
+                    s.key_file = str_val(d, "key_file");
+                    s.cert_file = str_val(d, "cert_file");
+                    return s;
+                };
+
+                c.resource_attributes = pairs_val(cfg, "resource_attributes");
+                c.traces   = extract_signal("traces");
+                c.metrics  = extract_signal("metrics");
+                c.logs     = extract_signal("logs");
+                if (cfg.contains("metric_interval_ms") && !cfg["metric_interval_ms"].is_none())
+                    c.metric_interval_ms = cfg["metric_interval_ms"].cast<int>();
+                if (cfg.contains("metric_timeout_ms") && !cfg["metric_timeout_ms"].is_none())
+                    c.metric_timeout_ms = cfg["metric_timeout_ms"].cast<int>();
+                return std::make_unique<otel_wrapper::SDKWrapper>(c);
+             }),
+             py::arg("config"),
+             "Configure all OTel signals from a pre-parsed config dict.")
         .def("shutdown", &otel_wrapper::SDKWrapper::shutdown,
              "Flush and shut down all configured providers.")
         .def("release_config", &otel_wrapper::SDKWrapper::release_config,
