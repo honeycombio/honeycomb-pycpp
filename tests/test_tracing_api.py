@@ -336,78 +336,67 @@ class TestTracerStartSpan:
 
 class TestTracerStartAsCurrentSpan:
     def test_name_only(self, tracer):
-        span = tracer.start_as_current_span("current-basic")
-        assert span is not None
-        assert span.is_recording()
-        span.end()
+        with tracer.start_as_current_span("current-basic") as span:
+            assert span is not None
+            assert span.is_recording()
 
     def test_with_attributes(self, tracer):
-        span = tracer.start_as_current_span("current-attrs", attributes={"x": "1"})
-        span.end()
+        with tracer.start_as_current_span("current-attrs", attributes={"x": "1"}) as span:
+            assert span is not None
 
     def test_with_attributes_mixed(self, tracer):
-        span = tracer.start_as_current_span("current-attrs", attributes={"x": "1", "int_list": [1,2,3]})
-        span.end()
+        with tracer.start_as_current_span("current-attrs", attributes={"x": "1", "int_list": [1,2,3]}) as span:
+            assert span is not None
 
     def test_with_context_none(self, tracer):
-        span = tracer.start_as_current_span("current-ctx-none", context=None)
-        span.end()
+        with tracer.start_as_current_span("current-ctx-none", context=None) as span:
+            assert span is not None
 
     def test_with_context_object(self, tracer):
         parent = tracer.start_span("sacc-parent")
         ctx = parent.get_context()
-        child = tracer.start_as_current_span("sacc-child", context=ctx)
-        assert child.get_parent_span_id() == parent.get_span_id()
-        child.end()
+        with tracer.start_as_current_span("sacc-child", context=ctx) as child:
+            assert child.get_parent_span_id() == parent.get_span_id()
         parent.end()
 
     def test_with_kind_server(self, tracer):
-        span = tracer.start_as_current_span("current-server", kind=SpanKind.SERVER)
-        assert span.kind == honeycomb_pycpp.SpanKind.SERVER.value
-        span.end()
+        with tracer.start_as_current_span("current-server", kind=SpanKind.SERVER) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.SERVER.value
 
     def test_with_kind_client(self, tracer):
-        span = tracer.start_as_current_span("current-client", kind=SpanKind.CLIENT)
-        assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
-        span.end()
+        with tracer.start_as_current_span("current-client", kind=SpanKind.CLIENT) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.CLIENT.value
 
     def test_with_kind_producer(self, tracer):
-        span = tracer.start_as_current_span("current-producer", kind=SpanKind.PRODUCER)
-        assert span.kind == honeycomb_pycpp.SpanKind.PRODUCER.value
-        span.end()
+        with tracer.start_as_current_span("current-producer", kind=SpanKind.PRODUCER) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.PRODUCER.value
 
     def test_with_kind_consumer(self, tracer):
-        span = tracer.start_as_current_span("current-consumer", kind=SpanKind.CONSUMER)
-        assert span.kind == honeycomb_pycpp.SpanKind.CONSUMER.value
-        span.end()
+        with tracer.start_as_current_span("current-consumer", kind=SpanKind.CONSUMER) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.CONSUMER.value
 
     def test_with_kind_internal(self, tracer):
-        span = tracer.start_as_current_span("current-internal", kind=SpanKind.INTERNAL)
-        assert span.kind == honeycomb_pycpp.SpanKind.INTERNAL.value
-        span.end()
+        with tracer.start_as_current_span("current-internal", kind=SpanKind.INTERNAL) as span:
+            assert span.kind == honeycomb_pycpp.SpanKind.INTERNAL.value
 
     def test_with_start_time(self, tracer):
         ts_ns = time.time_ns() - 500_000_000
-        span = tracer.start_as_current_span("current-timed", start_time=ts_ns)
-        assert span is not None
-        span.end()
+        with tracer.start_as_current_span("current-timed", start_time=ts_ns) as span:
+            assert span is not None
 
     def test_becomes_current_span(self, tracer):
         """start_as_current_span makes the span active in the runtime context."""
-        span = tracer.start_as_current_span("should-be-current")
-        ctx = honeycomb_pycpp.Context.get_current()
-        active = ctx.get_span()
-        assert active is not None
-        assert active.get_span_context().span_id == span.get_span_context().span_id
-        span.end()
+        with tracer.start_as_current_span("should-be-current") as span:
+            ctx = honeycomb_pycpp.Context.get_current()
+            active = ctx.get_span()
+            assert active is not None
+            assert active.get_span_context().span_id == span.get_span_context().span_id
 
     def test_nested_parent_propagation(self, tracer):
         """Nested start_as_current_span automatically picks up the outer span as parent."""
-        outer = tracer.start_as_current_span("outer")
-        inner = tracer.start_as_current_span("inner")
-        assert inner.get_parent_span_id() == outer.get_span_id()
-        inner.end()
-        outer.end()
+        with tracer.start_as_current_span("outer") as outer:
+            with tracer.start_as_current_span("inner") as inner:
+                assert inner.get_parent_span_id() == outer.get_span_id()
 
     def test_context_manager(self, tracer):
         """start_as_current_span span can be used as a context manager."""
@@ -947,6 +936,39 @@ class TestSpanContextManager:
             assert active is not None
             assert active.get_span_context().span_id == span.get_span_context().span_id
 
+    def test_start_as_current_span_decorator(self, tracer):
+        """start_as_current_span can be used as a @decorator; the span is active inside the function."""
+        results = []
+
+        @tracer.start_as_current_span("decorated-span")
+        def my_func():
+            # Capture the decorated span's ID before starting a child.
+            decorated_id = f'{honeycomb_pycpp.Context.get_current().get_span().get_span_context().span_id:016x}'
+            # start_as_current_span picks up RuntimeContext, so child should have decorated span as parent.
+            with tracer.start_as_current_span("child-span") as child:
+                results.append((child.get_parent_span_id(), decorated_id))
+
+        my_func()
+        assert len(results) == 1
+        child_parent_id, decorated_span_id = results[0]
+        assert child_parent_id != ""
+        assert child_parent_id == decorated_span_id
+
+    def test_start_as_current_span_decorator_repeated(self, tracer):
+        """Decorated function can be called multiple times, each gets its own span."""
+        span_ids = []
+
+        @tracer.start_as_current_span("repeated-span")
+        def my_func():
+            span_ids.append(
+                honeycomb_pycpp.Context.get_current().get_span().get_span_context().span_id
+            )
+
+        my_func()
+        my_func()
+        assert len(span_ids) == 2
+        assert span_ids[0] != span_ids[1]
+
 
 # ===========================================================================
 # Context
@@ -1036,9 +1058,8 @@ class TestContext:
 
     def test_span_active_via_context(self, tracer):
         """A span started as current is retrievable from the runtime context."""
-        span = tracer.start_as_current_span("ctx-active")
-        ctx = honeycomb_pycpp.Context.get_current()
-        active = ctx.get_span()
-        assert active is not None
-        assert active.get_span_context().span_id == span.get_span_context().span_id
-        span.end()
+        with tracer.start_as_current_span("ctx-active") as span:
+            ctx = honeycomb_pycpp.Context.get_current()
+            active = ctx.get_span()
+            assert active is not None
+            assert active.get_span_context().span_id == span.get_span_context().span_id
