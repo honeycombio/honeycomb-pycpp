@@ -6,6 +6,10 @@
 
 - maint: strip local symbols in shared libraries after compilation. (#) | @codeboten
 
+#### Fix
+
+- fix: ensure start_with_current_span returns a context. (#38) | @codeboten
+
 ## [0.1.14] - 2026-05-25
 
 #### Change
