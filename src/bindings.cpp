@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/eval.h>
 #include <pybind11/stl.h>
 #include <pybind11/functional.h>
 
@@ -80,6 +81,22 @@ void set_span_attribute(otel_wrapper::SpanWrapper& span,
             "Attribute value must be str, bool, int, float, or a homogeneous sequence thereof");
     }
 }
+
+// Lazy span context manager: defers span creation to __enter__ so the object
+// can also act as a decorator (@tracer.start_as_current_span("name")).
+struct SpanContextManager {
+    std::shared_ptr<otel_wrapper::TracerWrapper> tracer;
+    std::string name;
+    py::object context;
+    py::object kind;
+    py::object attributes;
+    py::object links;
+    py::object start_time;
+    bool record_exception        = true;
+    bool set_status_on_exception = true;
+    bool end_on_exit             = true;
+    std::shared_ptr<otel_wrapper::SpanWrapper> span;
+};
 
 }  // namespace
 
@@ -409,6 +426,86 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
             return false;
         });
 
+    // SpanContextManager — returned by start_as_current_span; lazy so it can also
+    // be used as a decorator (@tracer.start_as_current_span("name")).
+    py::class_<SpanContextManager, std::shared_ptr<SpanContextManager>>(m, "_SpanContextManager")
+        .def("__enter__",
+             [](std::shared_ptr<SpanContextManager> self) {
+                 std::shared_ptr<otel_wrapper::ContextWrapper> ctx_ptr = nullptr;
+                 if (!self->context.is_none() && !py::isinstance<py::dict>(self->context))
+                     ctx_ptr = self->context.cast<std::shared_ptr<otel_wrapper::ContextWrapper>>();
+
+                 int kind_value = 0;
+                 if (!self->kind.is_none()) {
+                     kind_value = py::hasattr(self->kind, "value")
+                         ? self->kind.attr("value").cast<int>()
+                         : self->kind.cast<int>();
+                 }
+
+                 uint64_t start_time_ns = 0;
+                 if (!self->start_time.is_none())
+                     start_time_ns = self->start_time.cast<uint64_t>();
+
+                 std::shared_ptr<otel_wrapper::SpanWrapper> span;
+                 if (!self->attributes.is_none()) {
+                     PyAttributeIterable attrs(self->attributes.cast<py::dict>());
+                     span = self->tracer->start_as_current_span(
+                         self->name, &attrs, ctx_ptr, kind_value, start_time_ns);
+                 } else {
+                     span = self->tracer->start_as_current_span(
+                         self->name, nullptr, ctx_ptr, kind_value, start_time_ns);
+                 }
+
+                 if (!self->links.is_none()) {
+                     for (auto link_handle : self->links) {
+                         py::object lobj = py::reinterpret_borrow<py::object>(link_handle);
+                         if (!py::hasattr(lobj, "context")) continue;
+                         auto sc = lobj.attr("context").cast<otel_wrapper::SpanContextWrapper>();
+                         py::dict attr_dict;
+                         if (py::hasattr(lobj, "attributes")) {
+                             py::object av = lobj.attr("attributes");
+                             if (av.ptr() != Py_None && PyDict_Check(av.ptr()))
+                                 attr_dict = py::reinterpret_borrow<py::dict>(av);
+                         }
+                         PyAttributeIterable attr_iter(attr_dict);
+                         span->add_link(sc, attr_iter);
+                     }
+                 }
+
+                 span->set_record_exception_flag(self->record_exception);
+                 span->set_status_on_exception_flag(self->set_status_on_exception);
+                 span->set_end_on_exit_flag(self->end_on_exit);
+                 self->span = span;
+                 return span;
+             })
+        .def("__exit__",
+             [](std::shared_ptr<SpanContextManager> self,
+                py::object exc_type, py::object exc_val, py::object tb) -> py::object {
+                 if (!self->span) return py::bool_(false);
+                 return py::cast(self->span).attr("__exit__")(exc_type, exc_val, tb);
+             })
+        .def("_clone", [](std::shared_ptr<SpanContextManager> self) {
+                 auto c = std::make_shared<SpanContextManager>(*self);
+                 c->span.reset();
+                 return c;
+             });
+
+    // Generator function that makes _SpanContextManager usable as both a
+    // context manager and a decorator via contextlib.contextmanager.
+    py::object span_cm_fn;
+    {
+        py::dict ns;
+        py::exec(R"(
+import contextlib
+
+@contextlib.contextmanager
+def _span_cm_fn(cm):
+    with cm._clone() as span:
+        yield span
+)", py::globals(), ns);
+        span_cm_fn = ns["_span_cm_fn"];
+    }
+
     // TracerWrapper class
     py::class_<otel_wrapper::TracerWrapper, std::shared_ptr<otel_wrapper::TracerWrapper>>(m, "Tracer")
         .def("start_span",
@@ -478,7 +575,7 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
              "Start a new span with optional context, kind, attributes, links, and start_time")
 
         .def("start_as_current_span",
-             [](otel_wrapper::TracerWrapper& self,
+             [span_cm_fn](std::shared_ptr<otel_wrapper::TracerWrapper> self,
                 const std::string& name,
                 py::object context,
                 py::object kind,
@@ -488,53 +585,18 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
                 bool record_exception,
                 bool set_status_on_exception,
                 bool end_on_exit) {
-                 std::shared_ptr<otel_wrapper::ContextWrapper> ctx_ptr = nullptr;
-                 if (!context.is_none() && !py::isinstance<py::dict>(context)) {
-                     ctx_ptr = context.cast<std::shared_ptr<otel_wrapper::ContextWrapper>>();
-                 }
-
-                 int kind_value = 0;
-                 if (!kind.is_none()) {
-                     if (py::hasattr(kind, "value")) {
-                         kind_value = kind.attr("value").cast<int>();
-                     } else {
-                         kind_value = kind.cast<int>();
-                     }
-                 }
-
-                 uint64_t start_time_value = 0;
-                 if (!start_time.is_none()) {
-                     start_time_value = start_time.cast<uint64_t>();
-                 }
-
-                 std::shared_ptr<otel_wrapper::SpanWrapper> span;
-                 if (!attributes.is_none()) {
-                     PyAttributeIterable attrs(attributes.cast<py::dict>());
-                     span = self.start_as_current_span(name, &attrs, ctx_ptr, kind_value, start_time_value);
-                 } else {
-                     span = self.start_as_current_span(name, nullptr, ctx_ptr, kind_value, start_time_value);
-                 }
-
-                 if (!links.is_none()) {
-                     for (auto link_handle : links) {
-                         py::object lobj = py::reinterpret_borrow<py::object>(link_handle);
-                         if (!py::hasattr(lobj, "context")) continue;
-                         auto sc = lobj.attr("context").cast<otel_wrapper::SpanContextWrapper>();
-                         py::dict attr_dict;
-                         if (py::hasattr(lobj, "attributes")) {
-                             py::object av = lobj.attr("attributes");
-                             if (av.ptr() != Py_None && PyDict_Check(av.ptr()))
-                                 attr_dict = py::reinterpret_borrow<py::dict>(av);
-                         }
-                         PyAttributeIterable attr_iter(attr_dict);
-                         span->add_link(sc, attr_iter);
-                     }
-                 }
-
-                 span->set_record_exception_flag(record_exception);
-                 span->set_status_on_exception_flag(set_status_on_exception);
-                 span->set_end_on_exit_flag(end_on_exit);
-                 return span;
+                 auto cm = std::make_shared<SpanContextManager>();
+                 cm->tracer             = self;
+                 cm->name               = name;
+                 cm->context            = context;
+                 cm->kind               = kind;
+                 cm->attributes         = attributes;
+                 cm->links              = links;
+                 cm->start_time         = start_time;
+                 cm->record_exception        = record_exception;
+                 cm->set_status_on_exception = set_status_on_exception;
+                 cm->end_on_exit             = end_on_exit;
+                 return span_cm_fn(py::cast(cm));
              },
              py::arg("name"),
              py::arg("context") = py::none(),
@@ -545,7 +607,9 @@ PYBIND11_MODULE(honeycomb_pycpp, m) {
              py::arg("record_exception") = true,
              py::arg("set_status_on_exception") = true,
              py::arg("end_on_exit") = true,
-             "Start a new span as the current active span");
+             "Start a span as the current active span. Usable as a context manager "
+             "(with tracer.start_as_current_span(...)) or decorator "
+             "(@tracer.start_as_current_span(...)).");
 
     // TracerProviderWrapper class
     py::class_<otel_wrapper::TracerProviderWrapper, std::shared_ptr<otel_wrapper::TracerProviderWrapper>>(
